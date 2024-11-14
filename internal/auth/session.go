@@ -30,6 +30,12 @@ func (sm *SessionManager) CreateSession(user *model.User) (string, error) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 
+	for id, session := range sm.sessions {
+		if session.UserID == user.ID {
+			delete(sm.sessions, id)
+		}
+	}
+
 	sessionID := uuid.New().String()
 	session := Session{
 		ID:        sessionID,
@@ -57,4 +63,11 @@ func (sm *SessionManager) DeleteSession(sessionID string) {
 	sm.mu.Lock()
 	defer sm.mu.Unlock()
 	delete(sm.sessions, sessionID)
+}
+
+func (sm *SessionManager) GetAllSessions() map[string]Session {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
+
+	return sm.sessions
 }
