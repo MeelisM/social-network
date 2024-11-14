@@ -54,6 +54,7 @@ func (s *Server) routes() {
 	s.router.HandleFunc("/register", s.handleRegister)
 	s.router.HandleFunc("/login", s.handleLogin)
 	s.router.HandleFunc("/logout", s.authMiddleware.RequireAuth(s.handleLogout))
+	s.router.HandleFunc("/debug/sessions", s.handleDebugSessions)
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -133,9 +134,17 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cookie, err := r.Cookie("session_id")
-	if err == nil {
-		s.sessionManager.DeleteSession(cookie.Value)
+	if err != nil {
+		http.Error(w, "No active session", http.StatusUnauthorized)
+		return
 	}
+
+	if _, valid := s.sessionManager.GetSession(cookie.Value); !valid {
+		http.Error(w, "Invalid session", http.StatusUnauthorized)
+		return
+	}
+
+	s.sessionManager.DeleteSession(cookie.Value)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     "session_id",
@@ -146,6 +155,16 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleDebugSessions(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessions := s.sessionManager.GetAllSessions()
+	json.NewEncoder(w).Encode(sessions)
 }
 
 func main() {
