@@ -13,11 +13,12 @@ import (
 )
 
 type Server struct {
-	router         *http.ServeMux
-	authService    *service.AuthService
-	sessionManager *auth.SessionManager
-	authMiddleware *middleware.AuthMiddleware
-	postService    *service.PostService
+	router          *http.ServeMux
+	authService     *service.AuthService
+	sessionManager  *auth.SessionManager
+	authMiddleware  *middleware.AuthMiddleware
+	postService     *service.PostService
+	followerService *service.FollowerService
 }
 
 func NewServer() *Server {
@@ -40,13 +41,15 @@ func NewServer() *Server {
 	authService := service.NewAuthService(db.DB)
 	authMiddleware := middleware.NewAuthMiddleware(sessionManager)
 	postService := service.NewPostService(db.DB)
+	followerService := service.NewFollowerService(db.DB)
 
 	server := &Server{
-		router:         http.NewServeMux(),
-		authService:    authService,
-		sessionManager: sessionManager,
-		authMiddleware: authMiddleware,
-		postService:    postService,
+		router:          http.NewServeMux(),
+		authService:     authService,
+		sessionManager:  sessionManager,
+		authMiddleware:  authMiddleware,
+		postService:     postService,
+		followerService: followerService,
 	}
 
 	server.routes()
@@ -71,6 +74,11 @@ func (s *Server) routes() {
 			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		}
 	}))
+	s.router.HandleFunc("/follow", s.authMiddleware.RequireAuth(s.handleFollow))
+	s.router.HandleFunc("/follow/respond", s.authMiddleware.RequireAuth(s.handleFollowResponse))
+	s.router.HandleFunc("/followers", s.authMiddleware.RequireAuth(s.handleGetFollowers))
+	s.router.HandleFunc("/following", s.authMiddleware.RequireAuth(s.handleGetFollowing))
+	s.router.HandleFunc("/follow/pending", s.authMiddleware.RequireAuth(s.handleGetPendingRequests))
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -216,6 +224,99 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	})
 
 	json.NewEncoder(w).Encode(user)
+}
+
+func (s *Server) handleFollow(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input struct {
+		UserID string `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	request, err := s.followerService.SendFollowRequest(userID, input.UserID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(request)
+}
+
+func (s *Server) handleFollowResponse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input model.FollowResponse
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	if err := s.followerService.RespondToRequest(input.RequestID, userID, input.Accept); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *Server) handleGetFollowers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	followers, err := s.followerService.GetFollowers(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(followers)
+}
+
+func (s *Server) handleGetFollowing(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	following, err := s.followerService.GetFollowing(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(following)
+}
+
+func (s *Server) handleGetPendingRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	requests, err := s.followerService.GetPendingRequests(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(requests)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
