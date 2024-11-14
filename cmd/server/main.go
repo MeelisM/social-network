@@ -17,6 +17,7 @@ type Server struct {
 	authService    *service.AuthService
 	sessionManager *auth.SessionManager
 	authMiddleware *middleware.AuthMiddleware
+	postService    *service.PostService
 }
 
 func NewServer() *Server {
@@ -38,12 +39,14 @@ func NewServer() *Server {
 	sessionManager := auth.NewSessionManager()
 	authService := service.NewAuthService(db.DB)
 	authMiddleware := middleware.NewAuthMiddleware(sessionManager)
+	postService := service.NewPostService(db.DB)
 
 	server := &Server{
 		router:         http.NewServeMux(),
 		authService:    authService,
 		sessionManager: sessionManager,
 		authMiddleware: authMiddleware,
+		postService:    postService,
 	}
 
 	server.routes()
@@ -55,6 +58,19 @@ func (s *Server) routes() {
 	s.router.HandleFunc("/login", s.handleLogin)
 	s.router.HandleFunc("/logout", s.authMiddleware.RequireAuth(s.handleLogout))
 	s.router.HandleFunc("/debug/sessions", s.handleDebugSessions)
+	s.router.HandleFunc("/posts", s.authMiddleware.RequireAuth(s.handleCreatePost))
+	s.router.HandleFunc("/posts/", s.authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method {
+		case http.MethodGet:
+			s.handleGetPost(w, r)
+		case http.MethodPut:
+			s.handleUpdatePost(w, r)
+		case http.MethodDelete:
+			s.handleDeletePost(w, r)
+		default:
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		}
+	}))
 }
 
 func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -90,6 +106,81 @@ func (s *Server) handleRegister(w http.ResponseWriter, r *http.Request) {
 	})
 
 	json.NewEncoder(w).Encode(user)
+}
+
+func (s *Server) handleCreatePost(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input model.CreatePostInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	post, err := s.postService.CreatePost(userID, input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(post)
+}
+
+func (s *Server) handleGetPost(w http.ResponseWriter, r *http.Request) {
+	postID := r.URL.Path[len("/posts/"):]
+	if postID == "" {
+		http.Error(w, "Post ID required", http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	post, err := s.postService.GetPost(postID, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	json.NewEncoder(w).Encode(post)
+}
+
+func (s *Server) handleUpdatePost(w http.ResponseWriter, r *http.Request) {
+	postID := r.URL.Path[len("/posts/"):]
+	if postID == "" {
+		http.Error(w, "Post ID required", http.StatusBadRequest)
+		return
+	}
+
+	var input model.UpdatePostInput
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	post, err := s.postService.UpdatePost(postID, userID, input)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	json.NewEncoder(w).Encode(post)
+}
+
+func (s *Server) handleDeletePost(w http.ResponseWriter, r *http.Request) {
+	postID := r.URL.Path[len("/posts/"):]
+	if postID == "" {
+		http.Error(w, "Post ID required", http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	if err := s.postService.DeletePost(postID, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {

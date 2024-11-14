@@ -16,10 +16,6 @@ func NewAuthMiddleware(sm *auth.SessionManager) *AuthMiddleware {
 
 func (m *AuthMiddleware) RequireAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != http.MethodPost {
-			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-			return
-		}
 
 		cookie, err := r.Cookie("session_id")
 		if err != nil {
