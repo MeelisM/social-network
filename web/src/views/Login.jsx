@@ -1,13 +1,38 @@
+// views/Login.js
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Box, Button, Container, TextField, Typography, Paper } from '@mui/material';
+import { useAuth } from '../context/AuthContext';
+import { useAxios } from '../utils/axiosInstance';
 
 function Login() {
+  const { setUser } = useAuth();
+  const axios = useAxios();
+  const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [error, setError] = useState(null);
 
-  const handleLogin = () => {
-    // Placeholder for login logic
-    console.log("Logging in with", email, password);
+  const handleLogin = async () => {
+    try {
+      const response = await axios.post('/login', {
+        email,
+        password,
+      });
+
+      // Extract and store user data from the response
+      const userData = response.data;
+      setUser(userData);
+      localStorage.setItem('user', JSON.stringify(userData));
+
+      // Redirect to main page or previous page
+      const from = location.state?.from?.pathname || '/main';
+      navigate(from);
+    } catch (err) {
+      console.error('Error during login:', err.message);
+      setError(err.response?.data?.message || 'Login failed');
+    }
   };
 
   return (
@@ -31,11 +56,10 @@ function Login() {
           bgcolor: '#1e1e1e',
           color: 'white',
           width: '100%',
-          maxWidth: 400, 
+          maxWidth: 400,
           textAlign: 'center',
         }}
       >
-        {/* Header */}
         <Typography variant="h4" color="primary" gutterBottom>
           Welcome Back
         </Typography>
@@ -43,7 +67,6 @@ function Login() {
           Please log in to continue
         </Typography>
 
-        {/* Login Form */}
         <Box
           component="form"
           sx={{
@@ -82,6 +105,7 @@ function Login() {
               sx: { color: 'grey.400' },
             }}
           />
+          {error && <Typography color="error">{error}</Typography>}
           <Button
             variant="contained"
             color="primary"
@@ -97,11 +121,6 @@ function Login() {
             Log In
           </Button>
         </Box>
-
-        {/* Optional Footer Text */}
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
-          Don’t have an account? <a href="#signup" style={{ color: '#90caf9' }}>Sign up here</a>
-        </Typography>
       </Paper>
     </Container>
   );
