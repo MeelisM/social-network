@@ -1,7 +1,7 @@
 import { Box, Typography, Button, List, ListItem, ListItemText, Divider, IconButton } from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useState } from 'react';
-import { notifications } from '../mockData'; // Import notifications from mock data
+import { notifications } from '../mockData'; 
 
 function NotificationSidebar({ onClose }) {
   const [showSidebar, setShowSidebar] = useState(true);
@@ -16,7 +16,7 @@ function NotificationSidebar({ onClose }) {
         color: 'white',
         padding: 2,
         position: 'fixed',
-        top: 64, // Spacing from the main header
+        top: 64, 
         right: 0,
         bottom: 0,
         display: 'flex',
@@ -31,7 +31,7 @@ function NotificationSidebar({ onClose }) {
           justifyContent: 'space-between',
           alignItems: 'center',
           marginBottom: 2,
-          paddingTop: 4, // Pull down from the top to avoid collusion
+          paddingTop: 4, 
         }}
       >
         <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
@@ -58,7 +58,7 @@ function NotificationSidebar({ onClose }) {
       <List
         sx={{
           flexGrow: 1,
-          overflowY: 'auto', // Scroll for long lists
+          overflowY: 'auto', 
           padding: 0,
         }}
       >

@@ -1,5 +1,3 @@
-// src/components/Post.jsx
-
 import { Card, CardContent, Typography, CardMedia } from '@mui/material';
 
 function Post({ title, content, image, width = '100%' }) {

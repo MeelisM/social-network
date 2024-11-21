@@ -9,7 +9,7 @@ function Footer() {
         color: '#fff',
         textAlign: 'center',
         py: 2,
-        mt: 'auto', // Push footer to the bottom
+        mt: 'auto', 
       }}
     >
       <Typography variant="body2">
