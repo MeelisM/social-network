@@ -25,6 +25,7 @@ func NewServer() *Server {
 
 	dbPath := "./data/social_network.db"
 	migrationsPath := "./pkg/db/migrations/sqlite"
+
 	// Initialize database
 	db, err := sqlite.New(dbPath)
 	if err != nil {
@@ -361,6 +362,9 @@ func (s *Server) handleDebugSessions(w http.ResponseWriter, r *http.Request) {
 
 func main() {
 	server := NewServer()
+
+	corsWrappedRouter := middleware.CORS(server.router)
+
 	log.Printf("Server starting on :8080")
-	log.Fatal(http.ListenAndServe(":8080", server.router))
+	log.Fatal(http.ListenAndServe(":8080", corsWrappedRouter))
 }
