@@ -34,19 +34,20 @@ func (s *AuthService) Register(input model.RegisterInput) (*model.User, error) {
 		Avatar:      input.Avatar,
 		Nickname:    input.Nickname,
 		AboutMe:     input.AboutMe,
+		IsPublic:    input.IsPublic, // Added IsPublic field
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
 
 	query := `
-		INSERT INTO users (id, email, password, first_name, last_name, date_of_birth, avatar, nickname, about_me, created_at, updated_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO users (id, email, password, first_name, last_name, date_of_birth, avatar, nickname, about_me, is_public, created_at, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	_, err = s.db.Exec(query,
 		user.ID, user.Email, user.Password, user.FirstName, user.LastName,
 		user.DateOfBirth, user.Avatar, user.Nickname, user.AboutMe,
-		user.CreatedAt, user.UpdatedAt)
+		user.IsPublic, user.CreatedAt, user.UpdatedAt) // Added IsPublic in the query
 
 	if err != nil {
 		return nil, err
@@ -57,11 +58,11 @@ func (s *AuthService) Register(input model.RegisterInput) (*model.User, error) {
 
 func (s *AuthService) Login(input model.LoginInput) (*model.User, error) {
 	user := &model.User{}
-	query := `SELECT * FROM users WHERE email = ?`
+	query := `SELECT id, email, password, first_name, last_name, date_of_birth, avatar, nickname, about_me, is_public, created_at, updated_at FROM users WHERE email = ?`
 	err := s.db.QueryRow(query, input.Email).Scan(
 		&user.ID, &user.Email, &user.Password, &user.FirstName, &user.LastName,
 		&user.DateOfBirth, &user.Avatar, &user.Nickname, &user.AboutMe,
-		&user.IsPublic, &user.CreatedAt, &user.UpdatedAt)
+		&user.IsPublic, &user.CreatedAt, &user.UpdatedAt) // Added IsPublic in the scan
 
 	if err != nil {
 		if err == sql.ErrNoRows {
