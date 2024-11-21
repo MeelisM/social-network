@@ -1,16 +1,35 @@
-import { Box, Typography, IconButton, Avatar, Badge } from '@mui/material';
+// components/Header.js
+import React from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { Box, Typography, IconButton, Avatar, Badge, Button } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ChatIcon from '@mui/icons-material/Chat';
-import LogoutIcon from '@mui/icons-material/Logout'; 
+import LogoutIcon from '@mui/icons-material/Logout';
+import { useAxios } from '../utils/axiosInstance';
 
-function Header({
-  onToggleSidebar,
-  onToggleChat,
-  onToggleNotification,
-  onLogout,
-  hasUnreadNotifications,
-}) {
+function Header({ onToggleSidebar, onToggleChat, onToggleNotification, hasUnreadNotifications }) {
+  const { user, setUser } = useAuth();
+  const axios = useAxios();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    try {
+      await axios.post('/logout');
+    } catch (error) {
+      console.error('Error during logout:', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
+  };
+
+  const handleLogin = () => {
+    navigate('/login');
+  };
+
   return (
     <Box
       sx={{
@@ -29,10 +48,7 @@ function Header({
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
         <IconButton
           onClick={onToggleSidebar}
-          sx={{
-            color: 'white',
-            '&:hover': { bgcolor: '#333' },
-          }}
+          sx={{ color: 'white', '&:hover': { bgcolor: '#333' } }}
         >
           <MenuIcon fontSize="large" />
         </IconButton>
@@ -44,48 +60,57 @@ function Header({
         </Typography>
       </Box>
 
-      {/* Right: User Info, Chat Toggle, Notifications, and Logout */}
+      {/* Right: User Info or Login Button */}
       <Box sx={{ display: 'flex', alignItems: 'center' }}>
-        {/* Notifications Icon with Badge */}
-        <IconButton onClick={onToggleNotification}>
-          <Badge
-            color="error"
-            variant="dot"
-            invisible={!hasUnreadNotifications} // Show badge only when there are unread notifications
+        {user ? (
+          <>
+            <IconButton onClick={onToggleNotification}>
+              <Badge
+                color="error"
+                variant="dot"
+                invisible={!hasUnreadNotifications}
+              >
+                <NotificationsIcon fontSize="large" color="primary" />
+              </Badge>
+            </IconButton>
+
+            <IconButton onClick={onToggleChat}>
+              <ChatIcon fontSize="large" color="primary" />
+            </IconButton>
+
+            <Typography
+              variant="body1"
+              sx={{ color: 'white', marginX: 1, fontSize: '1.2rem' }}
+            >
+              {user.nickname}
+            </Typography>
+            <Avatar
+              src={user.avatar !== 'null' ? user.avatar : 'https://via.placeholder.com/150'}
+              alt="User Avatar"
+              sx={{ marginLeft: 1 }}
+            />
+
+            <IconButton
+              sx={{ color: 'white', marginLeft: 2, '&:hover': { bgcolor: '#333' } }}
+              onClick={handleLogout}
+            >
+              <LogoutIcon fontSize="large" />
+            </IconButton>
+          </>
+        ) : (
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handleLogin}
+            sx={{
+              textTransform: 'none',
+              fontWeight: 'bold',
+              borderRadius: 1,
+            }}
           >
-            <NotificationsIcon fontSize="large" color="primary" />
-          </Badge>
-        </IconButton>
-
-        {/* Chat Icon */}
-        <IconButton onClick={onToggleChat}>
-          <ChatIcon fontSize="large" color="primary" />
-        </IconButton>
-
-        {/* User Info */}
-        <Typography
-          variant="body1"
-          sx={{ color: 'white', marginX: 1, fontSize: '1.2rem' }}
-        >
-          Kasutaja01
-        </Typography>
-        <Avatar
-          src="https://via.placeholder.com/150"
-          alt="User Avatar"
-          sx={{ marginLeft: 1 }}
-        />
-
-        {/* Logout Icon */}
-        <IconButton
-          sx={{
-            color: 'white',
-            marginLeft: 2,
-            '&:hover': { bgcolor: '#333' },
-          }}
-          onClick={onLogout}
-        >
-          <LogoutIcon fontSize="large" />
-        </IconButton>
+            Log In
+          </Button>
+        )}
       </Box>
     </Box>
   );
