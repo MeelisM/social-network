@@ -82,5 +82,4 @@ function FollowersPage() {
     </MainLayout>
   );
 }
-
 export default FollowersPage;

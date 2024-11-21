@@ -1,6 +1,6 @@
 import { Box, Typography, Avatar, Paper, Grid } from '@mui/material';
-import MainLayout from '../layouts/MainLayout'; // Import the layout
-import { users } from '../mockData'; // Mock data for users
+import MainLayout from '../layouts/MainLayout'; 
+import { users } from '../mockData'; 
 
 function ProfilePage({ userId }) {
   const user = users.find((u) => u.id === userId); // Find the user by ID
@@ -25,9 +25,9 @@ function ProfilePage({ userId }) {
           sx={{
             display: 'flex',
             alignItems: 'center',
-            marginBottom: 6, // Ensure spacing below header
-            maxWidth: '900px', // Match MainPage width
-            margin: '0 auto', // Center content
+            marginBottom: 6, 
+            maxWidth: '900px', 
+            margin: '0 auto', 
           }}
         >
           <Avatar
@@ -59,10 +59,10 @@ function ProfilePage({ userId }) {
         {/* About and Posts Sections */}
         <Grid
           container
-          spacing={4} // Uniform vertical and horizontal spacing
+          spacing={4} 
           sx={{
-            maxWidth: '900px', // Match MainPage width
-            margin: '0 auto', // Center content
+            maxWidth: '900px', 
+            margin: '0 auto', 
           }}
         >
           <Grid item xs={12}>
@@ -116,11 +116,11 @@ function ProfilePage({ userId }) {
         {/* Followers and Following */}
         <Grid
           container
-          spacing={4} // Uniform spacing between sections
+          spacing={4}
           sx={{
-            marginTop: 4, // Add spacing above followers/following
-            maxWidth: '900px', // Match MainPage width
-            margin: '0 auto', // Center content
+            marginTop: 4, 
+            maxWidth: '900px', 
+            margin: '0 auto', 
           }}
         >
           <Grid item xs={6}>

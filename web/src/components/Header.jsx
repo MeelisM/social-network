@@ -2,14 +2,14 @@ import { Box, Typography, IconButton, Avatar, Badge } from '@mui/material';
 import MenuIcon from '@mui/icons-material/Menu';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import ChatIcon from '@mui/icons-material/Chat';
-import LogoutIcon from '@mui/icons-material/Logout'; // Import Logout Icon
+import LogoutIcon from '@mui/icons-material/Logout'; 
 
 function Header({
   onToggleSidebar,
   onToggleChat,
   onToggleNotification,
   onLogout,
-  hasUnreadNotifications, // New prop for unread notifications
+  hasUnreadNotifications,
 }) {
   return (
     <Box

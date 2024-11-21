@@ -8,8 +8,8 @@ function MainPage() {
       <Box
         sx={{
           padding: 4,
-          maxWidth: '900px', // Match ProfilePage width
-          margin: '0 auto', // Center content
+          maxWidth: '900px', 
+          margin: '0 auto', 
         }}
       >
         {/* Feed Title */}
@@ -18,7 +18,7 @@ function MainPage() {
           sx={{
             color: 'white',
             fontWeight: 'bold',
-            marginBottom: 6, // Uniform spacing below the title
+            marginBottom: 6, 
             textAlign: 'center',
           }}
         >
