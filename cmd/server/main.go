@@ -58,6 +58,7 @@ func main() {
 
 	// Post routes
 	router.HandleFunc("/posts", authMiddleware.RequireAuth(postHandler.CreatePost))
+	router.HandleFunc("/posts/public", authMiddleware.RequireAuth(postHandler.GetPublicPosts))
 	router.HandleFunc("/posts/", authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet:

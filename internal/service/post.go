@@ -176,3 +176,84 @@ func (s *PostService) DeletePost(postID string, userID string) error {
 
 	return tx.Commit()
 }
+
+func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]interface{}, error) {
+	query := `
+		SELECT p.*, 
+			CASE 
+				WHEN p.privacy = 'public' THEN 1
+				WHEN p.privacy = 'private' AND p.user_id = ? THEN 1
+				WHEN p.privacy = 'almost_private' AND (p.user_id = ? OR EXISTS (
+					SELECT 1 FROM post_viewers pv WHERE pv.post_id = p.id AND pv.user_id = ?
+				)) THEN 1
+				ELSE 0 
+			END as can_view
+		FROM posts p
+		WHERE can_view = 1
+		ORDER BY p.created_at DESC
+	`
+
+	rows, err := s.db.Query(query, requestingUserID, requestingUserID, requestingUserID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var postsWithNicknames []map[string]interface{}
+	for rows.Next() {
+		post := &model.Post{}
+		var canView int
+
+		err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.Content,
+			&post.ImagePath,
+			&post.Privacy,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+			&canView,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Fetch user nickname and avatar directly in the same function
+		userQuery := `
+			SELECT nickname, avatar 
+			FROM users 
+			WHERE id = ?
+		`
+
+		var nickname, avatar string
+		err = s.db.QueryRow(userQuery, post.UserID).Scan(&nickname, &avatar)
+		if err != nil {
+			if err == sql.ErrNoRows {
+				nickname = "Unknown User" // Handle missing user gracefully
+				avatar = ""
+			} else {
+				return nil, err
+			}
+		}
+
+		// Combine post and user data
+		postWithNickname := map[string]interface{}{
+			"id":        post.ID,
+			"user_id":   post.UserID,
+			"nickname":  nickname,
+			"avatar":    avatar,
+			"content":   post.Content,
+			"imagePath": post.ImagePath,
+			"privacy":   post.Privacy,
+			"createdAt": post.CreatedAt,
+			"updatedAt": post.UpdatedAt,
+		}
+		postsWithNicknames = append(postsWithNicknames, postWithNickname)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return postsWithNicknames, nil
+}

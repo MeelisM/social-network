@@ -14,7 +14,7 @@ export const AuthProvider = ({ children }) => {
 
   const axiosInstance = axios.create({
     baseURL: 'http://localhost:8080', 
-    withCredentials: true, // Include cookies in requests
+    withCredentials: true, 
   });
 
   useEffect(() => {
@@ -23,7 +23,7 @@ export const AuthProvider = ({ children }) => {
         const response = await axiosInstance.get('/auth');
         if (response.status === 200) {
           setUser(response.data); 
-          localStorage.setItem('user', JSON.stringify(response.data)); // Save user data in localStorage
+          localStorage.setItem('user', JSON.stringify(response.data)); 
         } else {
           setUser(null);
           localStorage.removeItem('user');
