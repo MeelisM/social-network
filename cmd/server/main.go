@@ -31,6 +31,7 @@ func main() {
 	authMiddleware := middleware.NewAuthMiddleware(sessionManager)
 	postService := service.NewPostService(db.DB)
 	followerService := service.NewFollowerService(db.DB)
+	userService := service.NewUserService(db.DB)
 
 	// Initialize handlers
 	authHandler := &handler.AuthHandler{
@@ -42,6 +43,9 @@ func main() {
 	}
 	followerHandler := &handler.FollowerHandler{
 		FollowerService: followerService,
+	}
+	userHandler := &handler.UserHandler{
+		UserService: userService,
 	}
 	webSocketHandler := handler.NewWebSocketHandler()
 
@@ -73,6 +77,10 @@ func main() {
 	router.HandleFunc("/followers", authMiddleware.RequireAuth(followerHandler.GetFollowers))
 	router.HandleFunc("/following", authMiddleware.RequireAuth(followerHandler.GetFollowing))
 	router.HandleFunc("/follow/pending", authMiddleware.RequireAuth(followerHandler.GetPendingRequests))
+	router.HandleFunc("/follow/status", authMiddleware.RequireAuth(followerHandler.GetFollowStatus))
+
+	// User routes
+	router.HandleFunc("/users", userHandler.GetAllUsers)
 
 	// WebSocket route
 	router.HandleFunc("/ws", webSocketHandler.HandleConnections)

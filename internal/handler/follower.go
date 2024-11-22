@@ -103,3 +103,27 @@ func (h *FollowerHandler) GetPendingRequests(w http.ResponseWriter, r *http.Requ
 
 	json.NewEncoder(w).Encode(requests)
 }
+
+func (h *FollowerHandler) GetFollowStatus(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	currentUserID := r.Context().Value("user_id").(string)
+	otherUserID := r.URL.Query().Get("user_id")
+
+	if otherUserID == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	var status string
+	err := h.FollowerService.GetFollowStatus(currentUserID, otherUserID, &status)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(map[string]string{"status": status})
+}
