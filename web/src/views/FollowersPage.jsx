@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Box, Typography, Avatar, Paper } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
+import PleaseLoginOrRegister from "../components/utils/PleaseLoginOrRegister";
 
 function FollowersPage() {
     const [followers, setFollowers] = useState([]);
@@ -9,6 +10,7 @@ function FollowersPage() {
     const [followRequests, setFollowRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [unauthorized, setUnauthorized] = useState(false); // Handle unauthorized state
     const navigate = useNavigate();
 
     // Fetch followers, following, and follow requests
@@ -17,6 +19,10 @@ function FollowersPage() {
             const res = await fetch(url, {
                 credentials: "include",
             });
+            if (res.status === 401) {
+                setUnauthorized(true); // Set unauthorized flag
+                return;
+            }
             if (!res.ok) {
                 throw new Error(`Error fetching data from ${url}: ${res.statusText}`);
             }
@@ -40,6 +46,12 @@ function FollowersPage() {
         fetchAllData();
     }, []);
 
+    // Render PleaseLoginOrRegister if unauthorized
+    if (unauthorized) {
+        return <PleaseLoginOrRegister />;
+    }
+
+    // Render loading state
     if (loading) {
         return (
             <MainLayout>
@@ -57,6 +69,7 @@ function FollowersPage() {
         );
     }
 
+    // Render error state
     if (error) {
         return (
             <MainLayout>
@@ -78,7 +91,7 @@ function FollowersPage() {
         data.length > 0 ? (
             data.map((user, index) => (
                 <Paper
-                    key={user.id || `${user.nickname}-${index}`} 
+                    key={user.id || `${user.nickname}-${index}`} // Ensure a unique key
                     sx={{
                         padding: 2,
                         backgroundColor: "#1f1f1f",
@@ -89,7 +102,7 @@ function FollowersPage() {
                         alignItems: "center",
                         justifyContent: "center",
                         cursor: "pointer",
-                        "&:hover": { backgroundColor: "#333" }, 
+                        "&:hover": { backgroundColor: "#333" }, // Hover effect
                     }}
                     onClick={() => user.id && navigate(`/profile/${user.id}`)} // Navigate only if ID exists
                 >

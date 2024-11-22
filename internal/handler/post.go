@@ -85,3 +85,30 @@ func (h *PostHandler) DeletePost(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusOK)
 }
+
+func (h *PostHandler) GetPublicPosts(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Retrieve the user ID from the context
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok {
+		http.Error(w, "Unauthorized: user ID missing from context", http.StatusUnauthorized)
+		return
+	}
+
+	// Fetch all posts with nicknames
+	posts, err := h.PostService.GetPublicPosts(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Respond with the fetched posts
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(posts); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}

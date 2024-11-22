@@ -26,7 +26,7 @@ function Login() {
       localStorage.setItem('user', JSON.stringify(userData));
   
       // Redirect to main page or previous page
-      const from = location.state?.from?.pathname || '/main';
+      const from = location.state?.from?.pathname || '/';
       navigate(from);
     } catch (err) {
       console.error('Error during login:', err.message);

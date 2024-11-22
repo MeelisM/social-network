@@ -23,12 +23,10 @@ function Sidebar() {
   const navigate = useNavigate();
   const { user } = useAuth(); // current user data
 
-  const profileUrl = user?.user_id ? `/profile/${user.user_id}` : "/profile";
-
   return (
     <Box sx={{ width: 240, bgcolor: "#1f1f1f", color: "white", paddingTop: 2 }}>
       <List>
-        <ListItem button onClick={() => navigate("/main")}>
+        <ListItem button onClick={() => navigate("/")}>
           <ListItemIcon>
             <HomeIcon color="primary" fontSize="large" />
           </ListItemIcon>
@@ -40,7 +38,11 @@ function Sidebar() {
         <ListItem
           button
           onClick={() => {
-            navigate(profileUrl);
+            if (user?.user_id) {
+              navigate(`/profile/${user.user_id}`);
+            } else {
+              navigate("/login-required");
+            }
           }}
         >
           <ListItemIcon>
