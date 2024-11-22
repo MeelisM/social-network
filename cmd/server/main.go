@@ -86,6 +86,7 @@ func main() {
 
 	// Group routes
 	router.HandleFunc("/groups", authMiddleware.RequireAuth(groupHandler.HandleGroups))
+	router.HandleFunc("/groups/members", authMiddleware.RequireAuth(groupHandler.GetGroupMembers))
 	router.HandleFunc("/groups/invite", authMiddleware.RequireAuth(groupHandler.HandleInvite))
 	router.HandleFunc("/groups/invites", authMiddleware.RequireAuth(groupHandler.GetPendingInvites))
 	router.HandleFunc("/groups/invites/respond", authMiddleware.RequireAuth(groupHandler.HandleInviteResponse))

@@ -242,3 +242,25 @@ func (h *GroupHandler) GetEventResponses(w http.ResponseWriter, r *http.Request)
 
 	json.NewEncoder(w).Encode(responses)
 }
+
+func (h *GroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	groupID := r.URL.Query().Get("group_id")
+	if groupID == "" {
+		http.Error(w, "group_id is required", http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	members, err := h.GroupService.GetGroupMembers(groupID, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(members)
+}

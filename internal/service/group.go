@@ -84,7 +84,6 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
 }
 
 func (s *GroupService) RespondToInvite(groupID string, userID string, accept bool) error {
-	// Verify the invitation exists
 	var status string
 	err := s.db.QueryRow(`
         SELECT status FROM group_members 
@@ -169,6 +168,51 @@ func (s *GroupService) GetAllGroups() ([]model.Group, error) {
 	}
 
 	return groups, nil
+}
+
+func (s *GroupService) GetGroupMembers(groupID string, userID string) ([]struct {
+	UserID    string `json:"user_id"`
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+	Email     string `json:"email"`
+}, error) {
+	if err := s.verifyMembership(groupID, userID); err != nil {
+		return nil, err
+	}
+
+	rows, err := s.db.Query(`
+        SELECT u.id, u.first_name, u.last_name, u.email
+        FROM users u
+        JOIN group_members gm ON u.id = gm.user_id
+        WHERE gm.group_id = ? AND gm.status = 'accepted'
+        ORDER BY u.first_name, u.last_name`,
+		groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var members []struct {
+		UserID    string `json:"user_id"`
+		FirstName string `json:"first_name"`
+		LastName  string `json:"last_name"`
+		Email     string `json:"email"`
+	}
+
+	for rows.Next() {
+		var member struct {
+			UserID    string `json:"user_id"`
+			FirstName string `json:"first_name"`
+			LastName  string `json:"last_name"`
+			Email     string `json:"email"`
+		}
+		if err := rows.Scan(&member.UserID, &member.FirstName, &member.LastName, &member.Email); err != nil {
+			return nil, err
+		}
+		members = append(members, member)
+	}
+
+	return members, nil
 }
 
 // Post management
@@ -294,7 +338,6 @@ func (s *GroupService) RespondToEvent(eventID string, userID string, response st
 }
 
 func (s *GroupService) GetEventResponses(eventID string, userID string) (map[string][]string, error) {
-	// First verify the user is a member of the group
 	var groupID string
 	err := s.db.QueryRow(`
         SELECT group_id FROM group_events WHERE id = ?`,
@@ -307,7 +350,6 @@ func (s *GroupService) GetEventResponses(eventID string, userID string) (map[str
 		return nil, err
 	}
 
-	// Get all responses
 	rows, err := s.db.Query(`
         SELECT er.response, u.id, u.first_name, u.last_name
         FROM event_responses er
