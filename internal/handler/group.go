@@ -309,3 +309,20 @@ func (h *GroupHandler) GetGroupJoinRequests(w http.ResponseWriter, r *http.Reque
 
 	json.NewEncoder(w).Encode(requests)
 }
+
+func (h *GroupHandler) GetUserGroups(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+
+	groups, err := h.GroupService.GetUserGroups(userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(groups)
+}

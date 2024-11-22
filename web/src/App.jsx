@@ -9,6 +9,10 @@ import WebSocketTester from "./components/WebSocketTester";
 import UsersPage from "./views/UsersPage";
 import PleaseLoginOrRegister from "./components/utils/PleaseLoginOrRegister";
 import NewPostPage from "./views/NewPostPage"; 
+import YourGroups from "./views/YourGroups"; 
+import JoinedGroups from "./views/JoinedGroups"; 
+import AllGroups from "./views/AllGroups"; 
+import GroupPage from "./views/GroupPage";
 
 function App() {
   return (
@@ -23,6 +27,10 @@ function App() {
         <Route path="/test-websocket" element={<WebSocketTester />} />
         <Route path="/login-required" element={<PleaseLoginOrRegister />} />
         <Route path="/posts/new" element={<NewPostPage />} />
+        <Route path="/your-groups" element={<YourGroups />} /> 
+        <Route path="/joined-groups" element={<JoinedGroups />} /> 
+        <Route path="/all-groups" element={<AllGroups />} /> 
+        <Route path="/group/:id" element={<GroupPage />} />
       </Routes>
     </AuthProvider>
   );

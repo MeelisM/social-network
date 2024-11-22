@@ -86,6 +86,7 @@ func main() {
 
 	// Group routes
 	router.HandleFunc("/groups", authMiddleware.RequireAuth(groupHandler.HandleGroups))
+	router.HandleFunc("/groups/user", authMiddleware.RequireAuth(groupHandler.GetUserGroups))
 	router.HandleFunc("/groups/members", authMiddleware.RequireAuth(groupHandler.GetGroupMembers))
 	router.HandleFunc("/groups/join", authMiddleware.RequireAuth(groupHandler.RequestToJoinGroup))
 	router.HandleFunc("/groups/requests", authMiddleware.RequireAuth(groupHandler.GetGroupJoinRequests))
@@ -99,7 +100,7 @@ func main() {
 
 	// User routes
 	router.HandleFunc("/users", userHandler.GetAllUsers)
-	router.HandleFunc("/users/", userHandler.GetUserByUUID) // user lookup url
+	router.HandleFunc("/users/", userHandler.GetUserByUUID)
 
 	// WebSocket route
 	router.HandleFunc("/ws", webSocketHandler.HandleConnections)
