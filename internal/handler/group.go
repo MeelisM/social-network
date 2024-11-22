@@ -156,6 +156,7 @@ func (h *GroupHandler) HandleInviteResponse(w http.ResponseWriter, r *http.Reque
 
 	var input struct {
 		GroupID string `json:"group_id"`
+		UserID  string `json:"user_id"`
 		Accept  bool   `json:"accept"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -163,8 +164,8 @@ func (h *GroupHandler) HandleInviteResponse(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	userID := r.Context().Value("user_id").(string)
-	if err := h.GroupService.RespondToInvite(input.GroupID, userID, input.Accept); err != nil {
+	responderID := r.Context().Value("user_id").(string)
+	if err := h.GroupService.RespondToInvite(input.GroupID, input.UserID, responderID, input.Accept); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -263,4 +264,48 @@ func (h *GroupHandler) GetGroupMembers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	json.NewEncoder(w).Encode(members)
+}
+
+func (h *GroupHandler) RequestToJoinGroup(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input struct {
+		GroupID string `json:"group_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	if err := h.GroupService.RequestToJoinGroup(input.GroupID, userID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *GroupHandler) GetGroupJoinRequests(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	groupID := r.URL.Query().Get("group_id")
+	if groupID == "" {
+		http.Error(w, "group_id is required", http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	requests, err := h.GroupService.GetGroupJoinRequests(groupID, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(requests)
 }

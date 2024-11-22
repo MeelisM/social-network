@@ -83,14 +83,24 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
 	return tx.Commit()
 }
 
-func (s *GroupService) RespondToInvite(groupID string, userID string, accept bool) error {
+func (s *GroupService) RespondToInvite(groupID string, userID string, responderID string, accept bool) error {
+	var creatorID string
+	err := s.db.QueryRow("SELECT creator_id FROM groups WHERE id = ?", groupID).Scan(&creatorID)
+	if err != nil {
+		return errors.New("group not found")
+	}
+
+	if creatorID != responderID {
+		return errors.New("only group creator can accept/decline join requests")
+	}
+
 	var status string
-	err := s.db.QueryRow(`
+	err = s.db.QueryRow(`
         SELECT status FROM group_members 
         WHERE group_id = ? AND user_id = ? AND status = 'pending'`,
 		groupID, userID).Scan(&status)
 	if err != nil {
-		return errors.New("no pending invitation found")
+		return errors.New("no pending request found")
 	}
 
 	newStatus := "declined"
@@ -213,6 +223,82 @@ func (s *GroupService) GetGroupMembers(groupID string, userID string) ([]struct 
 	}
 
 	return members, nil
+}
+
+func (s *GroupService) RequestToJoinGroup(groupID string, userID string) error {
+	// Check if user already has a pending request or is a member
+	var status string
+	err := s.db.QueryRow(`
+        SELECT status FROM group_members 
+        WHERE group_id = ? AND user_id = ?`,
+		groupID, userID).Scan(&status)
+
+	if err == nil {
+		if status == "accepted" {
+			return errors.New("already a member of this group")
+		}
+		if status == "pending" {
+			return errors.New("already have a pending request")
+		}
+	}
+
+	// Create join request
+	_, err = s.db.Exec(`
+        INSERT INTO group_members (group_id, user_id, status)
+        VALUES (?, ?, 'pending')`,
+		groupID, userID)
+
+	return err
+}
+
+func (s *GroupService) GetGroupJoinRequests(groupID string, userID string) ([]struct {
+	UserID    string    `json:"user_id"`
+	FirstName string    `json:"first_name"`
+	LastName  string    `json:"last_name"`
+	CreatedAt time.Time `json:"created_at"`
+}, error) {
+	var creatorID string
+	err := s.db.QueryRow("SELECT creator_id FROM groups WHERE id = ?", groupID).Scan(&creatorID)
+	if err != nil {
+		return nil, err
+	}
+	if creatorID != userID {
+		return nil, errors.New("only group creator can view join requests")
+	}
+
+	rows, err := s.db.Query(`
+        SELECT u.id, u.first_name, u.last_name, gm.created_at
+        FROM users u
+        JOIN group_members gm ON u.id = gm.user_id
+        WHERE gm.group_id = ? AND gm.status = 'pending'
+        ORDER BY gm.created_at DESC`,
+		groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var requests []struct {
+		UserID    string    `json:"user_id"`
+		FirstName string    `json:"first_name"`
+		LastName  string    `json:"last_name"`
+		CreatedAt time.Time `json:"created_at"`
+	}
+
+	for rows.Next() {
+		var request struct {
+			UserID    string    `json:"user_id"`
+			FirstName string    `json:"first_name"`
+			LastName  string    `json:"last_name"`
+			CreatedAt time.Time `json:"created_at"`
+		}
+		if err := rows.Scan(&request.UserID, &request.FirstName, &request.LastName, &request.CreatedAt); err != nil {
+			return nil, err
+		}
+		requests = append(requests, request)
+	}
+
+	return requests, nil
 }
 
 // Post management
