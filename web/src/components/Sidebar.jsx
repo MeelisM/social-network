@@ -78,7 +78,7 @@ function Sidebar() {
             primaryTypographyProps={{ variant: 'h6', color: 'white' }}
           />
         </ListItem>
-        <ListItem button onClick={() => navigate('/followers')}> {/* Add navigation */}
+        <ListItem button onClick={() => navigate('/followers')}> 
           <ListItemIcon>
             <PeopleIcon color="primary" fontSize="large" />
           </ListItemIcon>
@@ -115,12 +115,12 @@ function Sidebar() {
             primaryTypographyProps={{ variant: 'h6', color: 'white' }}
           />
         </ListItem>
-        <ListItem button>
+        <ListItem button onClick={() => navigate('/users')}>
           <ListItemIcon>
             <PeopleIcon color="primary" fontSize="large" />
           </ListItemIcon>
           <ListItemText
-            primary="Members"
+            primary="All Users"
             primaryTypographyProps={{ variant: 'h6', color: 'white' }}
           />
         </ListItem>

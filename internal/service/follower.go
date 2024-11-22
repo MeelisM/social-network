@@ -117,10 +117,34 @@ func (s *FollowerService) GetFollowers(userID string) ([]string, error) {
 	return followers, nil
 }
 
+// commented out for testing
+
+// func (s *FollowerService) GetFollowing(userID string) ([]string, error) {
+// 	rows, err := s.db.Query(`
+//         SELECT following_id FROM follow_requests
+//         WHERE follower_id = ? AND status = 'accepted'`,
+// 		userID)
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	defer rows.Close()
+
+// 	var following []string
+// 	for rows.Next() {
+// 		var followingID string
+// 		if err := rows.Scan(&followingID); err != nil {
+// 			return nil, err
+// 		}
+// 		following = append(following, followingID)
+// 	}
+// 	return following, nil
+// }
+
 func (s *FollowerService) GetFollowing(userID string) ([]string, error) {
 	rows, err := s.db.Query(`
-        SELECT following_id FROM follow_requests 
-        WHERE follower_id = ? AND status = 'accepted'`,
+        SELECT u.nickname FROM follow_requests 
+        INNER JOIN users u ON follow_requests.following_id = u.id
+        WHERE follow_requests.follower_id = ? AND follow_requests.status = 'accepted'`,
 		userID)
 	if err != nil {
 		return nil, err
@@ -129,11 +153,11 @@ func (s *FollowerService) GetFollowing(userID string) ([]string, error) {
 
 	var following []string
 	for rows.Next() {
-		var followingID string
-		if err := rows.Scan(&followingID); err != nil {
+		var nickname string
+		if err := rows.Scan(&nickname); err != nil {
 			return nil, err
 		}
-		following = append(following, followingID)
+		following = append(following, nickname)
 	}
 	return following, nil
 }
@@ -160,4 +184,15 @@ func (s *FollowerService) GetPendingRequests(userID string) ([]model.FollowReque
 		requests = append(requests, req)
 	}
 	return requests, nil
+}
+
+func (s *FollowerService) GetFollowStatus(followerID, followingID string, status *string) error {
+	err := s.db.QueryRow(`
+        SELECT status FROM follow_requests
+        WHERE follower_id = ? AND following_id = ?`, followerID, followingID).Scan(status)
+	if err == sql.ErrNoRows {
+		*status = "not_followed"
+		return nil
+	}
+	return err
 }

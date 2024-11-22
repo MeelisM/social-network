@@ -28,7 +28,7 @@ type RegisterInput struct {
 	Avatar      *string `json:"avatar,omitempty"`
 	Nickname    *string `json:"nickname,omitempty"`
 	AboutMe     *string `json:"about_me,omitempty"`
-	IsPublic    bool    `json:"is_public"` // Add IsPublic here
+	IsPublic    bool    `json:"is_public"`
 }
 
 type LoginInput struct {

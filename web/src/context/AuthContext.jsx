@@ -13,14 +13,14 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(true);
 
   const axiosInstance = axios.create({
-    baseURL: 'http://localhost:8080', // Backend base URL
+    baseURL: 'http://localhost:8080', 
     withCredentials: true, // Include cookies in requests
   });
 
   useEffect(() => {
     const verifySession = async () => {
       try {
-        const response = await axiosInstance.get('/auth'); // Call the new session verification endpoint
+        const response = await axiosInstance.get('/auth'); 
         if (response.status === 200) {
           setUser(response.data); // Set the user based on the session data
         } else {
