@@ -20,9 +20,10 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const verifySession = async () => {
       try {
-        const response = await axiosInstance.get('/auth'); 
+        const response = await axiosInstance.get('/auth');
         if (response.status === 200) {
-          setUser(response.data); // Set the user based on the session data
+          setUser(response.data); 
+          localStorage.setItem('user', JSON.stringify(response.data)); // Save user data in localStorage
         } else {
           setUser(null);
           localStorage.removeItem('user');
@@ -34,6 +35,7 @@ export const AuthProvider = ({ children }) => {
         setLoading(false);
       }
     };
+    
 
     if (user) {
       verifySession();

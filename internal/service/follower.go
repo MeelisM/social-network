@@ -96,53 +96,33 @@ func (s *FollowerService) RespondToRequest(requestID string, userID string, acce
 	return err
 }
 
-func (s *FollowerService) GetFollowers(userID string) ([]string, error) {
+func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, error) {
 	rows, err := s.db.Query(`
-        SELECT follower_id FROM follow_requests 
-        WHERE following_id = ? AND status = 'accepted'`,
+        SELECT u.id, COALESCE(u.nickname, '') AS nickname 
+        FROM follow_requests 
+        INNER JOIN users u ON follow_requests.follower_id = u.id
+        WHERE follow_requests.following_id = ? AND follow_requests.status = 'accepted'`,
 		userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var followers []string
+	var followers []map[string]string
 	for rows.Next() {
-		var followerID string
-		if err := rows.Scan(&followerID); err != nil {
+		var id, nickname string
+		if err := rows.Scan(&id, &nickname); err != nil {
 			return nil, err
 		}
-		followers = append(followers, followerID)
+		followers = append(followers, map[string]string{"id": id, "nickname": nickname})
 	}
 	return followers, nil
 }
 
-// commented out for testing
-
-// func (s *FollowerService) GetFollowing(userID string) ([]string, error) {
-// 	rows, err := s.db.Query(`
-//         SELECT following_id FROM follow_requests
-//         WHERE follower_id = ? AND status = 'accepted'`,
-// 		userID)
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	defer rows.Close()
-
-// 	var following []string
-// 	for rows.Next() {
-// 		var followingID string
-// 		if err := rows.Scan(&followingID); err != nil {
-// 			return nil, err
-// 		}
-// 		following = append(following, followingID)
-// 	}
-// 	return following, nil
-// }
-
-func (s *FollowerService) GetFollowing(userID string) ([]string, error) {
+func (s *FollowerService) GetFollowing(userID string) ([]map[string]string, error) {
 	rows, err := s.db.Query(`
-        SELECT u.nickname FROM follow_requests 
+        SELECT u.id, u.nickname 
+        FROM follow_requests 
         INNER JOIN users u ON follow_requests.following_id = u.id
         WHERE follow_requests.follower_id = ? AND follow_requests.status = 'accepted'`,
 		userID)
@@ -151,13 +131,13 @@ func (s *FollowerService) GetFollowing(userID string) ([]string, error) {
 	}
 	defer rows.Close()
 
-	var following []string
+	var following []map[string]string
 	for rows.Next() {
-		var nickname string
-		if err := rows.Scan(&nickname); err != nil {
+		var id, nickname string
+		if err := rows.Scan(&id, &nickname); err != nil {
 			return nil, err
 		}
-		following = append(following, nickname)
+		following = append(following, map[string]string{"id": id, "nickname": nickname})
 	}
 	return following, nil
 }

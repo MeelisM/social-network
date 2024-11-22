@@ -69,6 +69,7 @@ func (h *FollowerHandler) GetFollowers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(followers)
 }
 
@@ -85,6 +86,7 @@ func (h *FollowerHandler) GetFollowing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(following)
 }
 
