@@ -555,3 +555,68 @@ func (s *GroupService) getEventResponses(eventID string) (map[string]string, err
 	}
 	return responses, nil
 }
+
+func (s *GroupService) GetUserGroups(userID string) (struct {
+	OwnedGroups  []model.Group `json:"owned_groups"`
+	MemberGroups []model.Group `json:"member_groups"`
+}, error) {
+	var result struct {
+		OwnedGroups  []model.Group `json:"owned_groups"`
+		MemberGroups []model.Group `json:"member_groups"`
+	}
+
+	// Fetch groups where the user is the creator
+	rows, err := s.db.Query(`
+        SELECT id, creator_id, title, description, created_at, updated_at
+        FROM groups
+        WHERE creator_id = ?`,
+		userID)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var group model.Group
+		if err := rows.Scan(
+			&group.ID,
+			&group.CreatorID,
+			&group.Title,
+			&group.Description,
+			&group.CreatedAt,
+			&group.UpdatedAt,
+		); err != nil {
+			return result, err
+		}
+		result.OwnedGroups = append(result.OwnedGroups, group)
+	}
+
+	// Fetch groups where the user is a member
+	rows, err = s.db.Query(`
+        SELECT g.id, g.creator_id, g.title, g.description, g.created_at, g.updated_at
+        FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE gm.user_id = ? AND gm.status = 'accepted'`,
+		userID)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var group model.Group
+		if err := rows.Scan(
+			&group.ID,
+			&group.CreatorID,
+			&group.Title,
+			&group.Description,
+			&group.CreatedAt,
+			&group.UpdatedAt,
+		); err != nil {
+			return result, err
+		}
+		result.MemberGroups = append(result.MemberGroups, group)
+	}
+
+	return result, nil
+}

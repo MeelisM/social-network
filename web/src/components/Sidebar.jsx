@@ -72,7 +72,7 @@ function Sidebar() {
         For You
       </Typography>
       <List>
-        <ListItem button>
+      <ListItem button onClick={() => navigate("/your-groups")}>
           <ListItemIcon>
             <ExploreIcon color="primary" fontSize="large" />
           </ListItemIcon>
@@ -81,7 +81,7 @@ function Sidebar() {
             primaryTypographyProps={{ variant: "h6", color: "white" }}
           />
         </ListItem>
-        <ListItem button>
+        <ListItem button onClick={() => navigate("/joined-groups")}>
           <ListItemIcon>
             <GroupsIcon color="primary" fontSize="large" />
           </ListItemIcon>
@@ -118,7 +118,7 @@ function Sidebar() {
         Explore
       </Typography>
       <List>
-        <ListItem button>
+      <ListItem button onClick={() => navigate("/all-groups")}>
           <ListItemIcon>
             <GroupsIcon color="primary" fontSize="large" />
           </ListItemIcon>

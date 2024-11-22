@@ -1,19 +1,35 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Box, Typography, Avatar, Paper, Grid } from "@mui/material";
+import {
+    Box,
+    Typography,
+    Avatar,
+    Paper,
+    Grid,
+    Button,
+    Modal,
+    List,
+    ListItem,
+    ListItemText,
+    CircularProgress,
+} from "@mui/material";
+import { getOwnedGroups, inviteToGroup } from "../service/groupService";
 import MainLayout from "../layouts/MainLayout";
 
 function ProfilePage() {
-    const { identifier } = useParams(); // Get 'identifier' from the URL
+    const { identifier } = useParams(); 
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [ownedGroups, setOwnedGroups] = useState([]); 
+    const [modalOpen, setModalOpen] = useState(false); 
+    const [inviteLoading, setInviteLoading] = useState(false); 
 
     useEffect(() => {
         async function fetchUser() {
             try {
                 const res = await fetch(`http://localhost:8080/users/${identifier}`, {
-                    credentials: "include", 
+                    credentials: "include",
                 });
                 if (!res.ok) {
                     throw new Error(`Error fetching user profile: ${res.statusText}`);
@@ -27,8 +43,34 @@ function ProfilePage() {
                 setLoading(false);
             }
         }
+
+        async function fetchOwnedGroups() {
+            try {
+                const response = await getOwnedGroups();
+                console.log("Owned Groups Response:", response);
+                setOwnedGroups(Array.isArray(response?.data?.owned_groups) ? response.data.owned_groups : []);
+            } catch (error) {
+                console.error("Error fetching owned groups:", error);
+            }
+        }
+
         fetchUser();
+        fetchOwnedGroups();
     }, [identifier]);
+
+    const handleInvite = async (groupId) => {
+        setInviteLoading(true);
+        try {
+            await inviteToGroup(groupId, [user.id]); 
+            alert(`Invitation sent to ${user.nickname} for group ID: ${groupId}`);
+        } catch (error) {
+            console.error("Error sending invite:", error);
+            alert("Failed to send invite. Please try again.");
+        } finally {
+            setInviteLoading(false);
+            setModalOpen(false); 
+        }
+    };
 
     if (loading) {
         return (
@@ -118,81 +160,72 @@ function ProfilePage() {
                     </Grid>
                 </Grid>
 
-                {/* Followers and Following */}
-                <Grid
-                    container
-                    spacing={4}
+                {/* Invite Button */}
+                <Box sx={{ textAlign: "center", marginTop: 4 }}>
+                    <Button
+                        variant="contained"
+                        color="primary"
+                        onClick={() => setModalOpen(true)}
+                        disabled={inviteLoading}
+                    >
+                        Invite to Group
+                    </Button>
+                </Box>
+
+                {/* Modal for Group Selection */}
+                <Modal
+                    open={modalOpen}
+                    onClose={() => setModalOpen(false)}
                     sx={{
-                        marginTop: 4,
-                        maxWidth: "900px",
-                        margin: "0 auto",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
                     }}
                 >
-                    <Grid item xs={6}>
-                        <Paper
-                            sx={{
-                                padding: 3,
-                                backgroundColor: "#1f1f1f",
-                                color: "#ffffff",
-                                borderRadius: 3,
-                            }}
-                        >
-                            <Typography variant="h6" sx={{ marginBottom: 2 }}>
-                                Followers
-                            </Typography>
-                            {user.followers && user.followers.length > 0 ? (
-                                user.followers.map((follower) => (
-                                    <Typography
-                                        key={follower}
-                                        sx={{
-                                            fontSize: "0.95rem",
-                                            color: "#b0bec5",
-                                            marginBottom: 1,
-                                        }}
+                    <Paper
+                        sx={{
+                            padding: 4,
+                            width: "400px",
+                            backgroundColor: "#1f1f1f",
+                            color: "#ffffff",
+                            borderRadius: 3,
+                        }}
+                    >
+                        <Typography variant="h6" sx={{ marginBottom: 2 }}>
+                            Select a Group
+                        </Typography>
+                        {ownedGroups.length === 0 ? (
+                            <Typography>No groups available for invitation.</Typography>
+                        ) : (
+                            <List>
+                                {ownedGroups.map((group) => (
+                                    <ListItem
+                                        button
+                                        key={group.id}
+                                        onClick={() => handleInvite(group.id)}
                                     >
-                                        {follower}
-                                    </Typography>
-                                ))
-                            ) : (
-                                <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
-                                    No followers.
-                                </Typography>
-                            )}
-                        </Paper>
-                    </Grid>
-                    <Grid item xs={6}>
-                        <Paper
-                            sx={{
-                                padding: 3,
-                                backgroundColor: "#1f1f1f",
-                                color: "#ffffff",
-                                borderRadius: 3,
-                            }}
-                        >
-                            <Typography variant="h6" sx={{ marginBottom: 2 }}>
-                                Following
-                            </Typography>
-                            {user.following && user.following.length > 0 ? (
-                                user.following.map((following) => (
-                                    <Typography
-                                        key={following}
-                                        sx={{
-                                            fontSize: "0.95rem",
-                                            color: "#b0bec5",
-                                            marginBottom: 1,
-                                        }}
-                                    >
-                                        {following}
-                                    </Typography>
-                                ))
-                            ) : (
-                                <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
-                                    Not following anyone.
-                                </Typography>
-                            )}
-                        </Paper>
-                    </Grid>
-                </Grid>
+                                        <ListItemText
+                                            primary={group.title}
+                                            secondary={group.description || "No description"}
+                                            sx={{ color: "white" }}
+                                        />
+                                    </ListItem>
+                                ))}
+                            </List>
+                        )}
+                        {inviteLoading && (
+                            <CircularProgress
+                                size={24}
+                                sx={{
+                                    color: "white",
+                                    marginTop: 2,
+                                    display: "block",
+                                    margin: "0 auto",
+                                }}
+                            />
+                        )}
+                    </Paper>
+                </Modal>
             </Box>
         </MainLayout>
     );
