@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, Avatar, Paper } from "@mui/material";
+import { useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
 
 function FollowersPage() {
@@ -8,8 +9,9 @@ function FollowersPage() {
     const [followRequests, setFollowRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const navigate = useNavigate();
 
-    // Fetch followers
+    // Fetch followers, following, and follow requests
     const fetchData = async (url, setter) => {
         try {
             const res = await fetch(url, {
@@ -72,11 +74,11 @@ function FollowersPage() {
         );
     }
 
-    const renderNicknames = (nicknames, emptyMessage) =>
-        nicknames.length > 0 ? (
-            nicknames.map((nickname, index) => (
+    const renderCards = (data, emptyMessage) =>
+        data.length > 0 ? (
+            data.map((user, index) => (
                 <Paper
-                    key={`${nickname}-${index}`}
+                    key={user.id || `${user.nickname}-${index}`} 
                     sx={{
                         padding: 2,
                         backgroundColor: "#1f1f1f",
@@ -86,7 +88,10 @@ function FollowersPage() {
                         flexDirection: "column",
                         alignItems: "center",
                         justifyContent: "center",
+                        cursor: "pointer",
+                        "&:hover": { backgroundColor: "#333" }, 
                     }}
+                    onClick={() => user.id && navigate(`/profile/${user.id}`)} // Navigate only if ID exists
                 >
                     <Avatar
                         sx={{
@@ -98,7 +103,7 @@ function FollowersPage() {
                             fontWeight: "bold",
                         }}
                     >
-                        {nickname[0]?.toUpperCase() ?? "?"}
+                        {user.nickname[0]?.toUpperCase() ?? "?"}
                     </Avatar>
                     <Typography
                         variant="h6"
@@ -108,7 +113,7 @@ function FollowersPage() {
                             textAlign: "center",
                         }}
                     >
-                        {nickname}
+                        {user.nickname}
                     </Typography>
                 </Paper>
             ))
@@ -153,7 +158,7 @@ function FollowersPage() {
                         marginBottom: 6,
                     }}
                 >
-                    {renderNicknames(followRequests, "No follow requests.")}
+                    {renderCards(followRequests, "No follow requests.")}
                 </Box>
 
                 {/* Followers */}
@@ -175,7 +180,7 @@ function FollowersPage() {
                         marginBottom: 6,
                     }}
                 >
-                    {renderNicknames(followers, "You have no followers yet.")}
+                    {renderCards(followers, "You have no followers yet.")}
                 </Box>
 
                 {/* Following */}
@@ -196,7 +201,7 @@ function FollowersPage() {
                         gap: 3,
                     }}
                 >
-                    {renderNicknames(following, "You are not following anyone yet.")}
+                    {renderCards(following, "You are not following anyone yet.")}
                 </Box>
             </Box>
         </MainLayout>

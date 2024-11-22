@@ -81,6 +81,7 @@ func main() {
 
 	// User routes
 	router.HandleFunc("/users", userHandler.GetAllUsers)
+	router.HandleFunc("/users/", userHandler.GetUserByUUID) // user lookup url
 
 	// WebSocket route
 	router.HandleFunc("/ws", webSocketHandler.HandleConnections)

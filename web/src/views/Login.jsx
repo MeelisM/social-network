@@ -20,12 +20,11 @@ function Login() {
         email,
         password,
       });
-
-      // Extract and store user data from the response
+  
       const userData = response.data;
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
-
+  
       // Redirect to main page or previous page
       const from = location.state?.from?.pathname || '/main';
       navigate(from);
@@ -34,6 +33,7 @@ function Login() {
       setError(err.response?.data?.message || 'Login failed');
     }
   };
+  
 
   return (
     <Container

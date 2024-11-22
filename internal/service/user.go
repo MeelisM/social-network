@@ -2,6 +2,7 @@ package service
 
 import (
 	"database/sql"
+	"errors"
 	"social-network/internal/model"
 )
 
@@ -25,9 +26,7 @@ func (s *UserService) GetAllUsers() ([]model.User, error) {
 	var users []model.User
 	for rows.Next() {
 		var user model.User
-		err := rows.Scan(
-			&user.ID, &user.Nickname,
-		)
+		err := rows.Scan(&user.ID, &user.Nickname)
 		if err != nil {
 			return nil, err
 		}
@@ -37,20 +36,23 @@ func (s *UserService) GetAllUsers() ([]model.User, error) {
 	return users, nil
 }
 
-// placeholder if needed
+func (s *UserService) GetUserByUUID(uuid string) (*model.User, error) {
+	query := `
+        SELECT id, nickname, avatar, about_me, is_public, created_at
+        FROM users
+        WHERE id = ?`
 
-// func (s *UserService) GetUserByID(userID string) (*model.User, error) {
-// 	var user model.User
-// 	err := s.db.QueryRow(`
-//         SELECT id, first_name, last_name FROM users WHERE id = ?`,
-// 		userID).Scan(&user.ID, &user.FirstName, &user.LastName)
+	var user model.User
+	err := s.db.QueryRow(query, uuid).Scan(
+		&user.ID, &user.Nickname, &user.Avatar, &user.AboutMe, &user.IsPublic, &user.CreatedAt,
+	)
 
-// 	if err != nil {
-// 		if err == sql.ErrNoRows {
-// 			return nil, errors.New("user not found")
-// 		}
-// 		return nil, err
-// 	}
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, errors.New("user not found")
+		}
+		return nil, err
+	}
 
-// 	return &user, nil
-// }
+	return &user, nil
+}
