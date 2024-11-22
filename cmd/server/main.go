@@ -32,6 +32,7 @@ func main() {
 	postService := service.NewPostService(db.DB)
 	followerService := service.NewFollowerService(db.DB)
 	userService := service.NewUserService(db.DB)
+	groupService := service.NewGroupService(db.DB)
 
 	// Initialize handlers
 	authHandler := &handler.AuthHandler{
@@ -46,6 +47,9 @@ func main() {
 	}
 	userHandler := &handler.UserHandler{
 		UserService: userService,
+	}
+	groupHandler := &handler.GroupHandler{
+		GroupService: groupService,
 	}
 	webSocketHandler := handler.NewWebSocketHandler()
 
@@ -79,6 +83,16 @@ func main() {
 	router.HandleFunc("/following", authMiddleware.RequireAuth(followerHandler.GetFollowing))
 	router.HandleFunc("/follow/pending", authMiddleware.RequireAuth(followerHandler.GetPendingRequests))
 	router.HandleFunc("/follow/status", authMiddleware.RequireAuth(followerHandler.GetFollowStatus))
+
+	// Group routes
+	router.HandleFunc("/groups", authMiddleware.RequireAuth(groupHandler.HandleGroups))
+	router.HandleFunc("/groups/invite", authMiddleware.RequireAuth(groupHandler.HandleInvite))
+	router.HandleFunc("/groups/invites", authMiddleware.RequireAuth(groupHandler.GetPendingInvites))
+	router.HandleFunc("/groups/invites/respond", authMiddleware.RequireAuth(groupHandler.HandleInviteResponse))
+	router.HandleFunc("/groups/posts", authMiddleware.RequireAuth(groupHandler.HandlePosts))
+	router.HandleFunc("/groups/events", authMiddleware.RequireAuth(groupHandler.HandleEvents))
+	router.HandleFunc("/groups/events/respond", authMiddleware.RequireAuth(groupHandler.HandleEventResponse))
+	router.HandleFunc("/groups/events/responses", authMiddleware.RequireAuth(groupHandler.GetEventResponses))
 
 	// User routes
 	router.HandleFunc("/users", userHandler.GetAllUsers)
