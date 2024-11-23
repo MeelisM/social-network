@@ -15,9 +15,11 @@ import {
 } from "@mui/material";
 import { getOwnedGroups, inviteToGroup } from "../service/groupService";
 import MainLayout from "../layouts/MainLayout";
+import { useAuth } from "../context/AuthContext";
 
 function ProfilePage() {
-  const { identifier } = useParams(); 
+  const { identifier } = useParams();
+  const { user: loggedInUser } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -26,6 +28,15 @@ function ProfilePage() {
   const [ownedGroups, setOwnedGroups] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [isPublic, setIsPublic] = useState(true); // Mock for public/private toggle
+
+  const isOwnProfile = loggedInUser?.user_id === identifier;
+
+  useEffect(() => {
+    console.log("Logged-in user ID from context:", loggedInUser?.user_id);
+    console.log("Profile being viewed (URL identifier):", identifier);
+    console.log("Is own profile:", isOwnProfile);
+  }, [loggedInUser, identifier]);
 
   useEffect(() => {
     async function fetchUser() {
@@ -101,6 +112,50 @@ function ProfilePage() {
     fetchOwnedGroups();
   }, [identifier]);
 
+  const handleFollow = async () => {
+    try {
+      const res = await fetch(`http://localhost:8080/follow`, {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_id: identifier }),
+      });
+      if (!res.ok) {
+        throw new Error("Error following user.");
+      }
+      alert("Followed successfully!");
+      setFollowers((prev) => [...prev, loggedInUser]); 
+    } catch (err) {
+      console.error("Error following user:", err);
+      alert("Failed to follow user.");
+    }
+  };
+
+  const handleUnfollow = async () => {
+    try {
+      const res = await fetch(`http://localhost:8080/follow`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ user_id: identifier }),
+      });
+      if (!res.ok) {
+        throw new Error("Error unfollowing user.");
+      }
+      alert("Unfollowed successfully!");
+      setFollowers((prev) =>
+        prev.filter((follower) => follower.user_id !== identifier)
+      ); 
+    } catch (err) {
+      console.error("Error unfollowing user:", err);
+      alert("Failed to unfollow user.");
+    }
+  };
+
   const handleInvite = async (groupId) => {
     setInviteLoading(true);
     try {
@@ -113,6 +168,12 @@ function ProfilePage() {
       setInviteLoading(false);
       setModalOpen(false);
     }
+  };
+
+  const toggleProfileType = () => {
+    // Mock for toggling profile type
+    setIsPublic((prev) => !prev);
+    alert(`Profile type changed to ${!isPublic ? "Public" : "Private"}`);
   };
 
   if (loading) {
@@ -147,7 +208,6 @@ function ProfilePage() {
   return (
     <MainLayout>
       <Box sx={{ padding: 4 }}>
-        {/* Header Section */}
         <Box
           sx={{
             display: "flex",
@@ -174,47 +234,47 @@ function ProfilePage() {
               {user.nickname}
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={() => setModalOpen(true)}
-            disabled={inviteLoading}
-            sx={{
-              height: 40,
-              fontSize: "0.875rem",
-            }}
-          >
-            Invite to Group
-          </Button>
-        </Box>
-
-        {/* About Section */}
-        <Grid
-          container
-          spacing={4}
-          sx={{
-            maxWidth: "900px",
-            margin: "0 auto",
-          }}
-        >
-          <Grid item xs={12}>
-            <Paper
+          {isOwnProfile ? (
+            <Button
+              variant="contained"
+              color="secondary"
+              onClick={toggleProfileType}
               sx={{
-                padding: 3,
-                backgroundColor: "#1f1f1f",
-                color: "#ffffff",
-                borderRadius: 3,
+                height: 40,
+                fontSize: "0.875rem",
               }}
             >
-              <Typography variant="h6" sx={{ marginBottom: 2 }}>
-                About Me
-              </Typography>
-              <Typography variant="body1">
-                {user.about_me || "No information provided."}
-              </Typography>
-            </Paper>
-          </Grid>
-        </Grid>
+              Set Profile {isPublic ? "Private" : "Public"}
+            </Button>
+          ) : (
+            <>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleFollow}
+                sx={{
+                  height: 40,
+                  fontSize: "0.875rem",
+                  marginRight: 2,
+                }}
+              >
+                Follow
+              </Button>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={() => setModalOpen(true)}
+                disabled={inviteLoading}
+                sx={{
+                  height: 40,
+                  fontSize: "0.875rem",
+                }}
+              >
+                Invite to Group
+              </Button>
+            </>
+          )}
+        </Box>
 
         {/* Followers and Following */}
         <Grid

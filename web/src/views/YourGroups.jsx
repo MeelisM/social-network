@@ -10,23 +10,32 @@ import {
   CircularProgress,
 } from "@mui/material";
 import { Link } from "react-router-dom";
-import { getOwnedGroups, createGroup, getPendingInvites, respondToGroupJoinRequest } from "../service/groupService";
+import {
+  getOwnedGroups,
+  createGroup,
+  getPendingInvites,
+  respondToGroupJoinRequest,
+} from "../service/groupService";
 import MainLayout from "../layouts/MainLayout";
 
 const YourGroups = () => {
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [modalOpen, setModalOpen] = useState(false); 
+  const [modalOpen, setModalOpen] = useState(false);
   const [formLoading, setFormLoading] = useState(false);
-  const [formData, setFormData] = useState({ title: "", description: "" }); 
-  const [inviteRequests, setInviteRequests] = useState([]); 
-  const [inviteLoading, setInviteLoading] = useState(false); 
+  const [formData, setFormData] = useState({ title: "", description: "" });
+  const [inviteRequests, setInviteRequests] = useState([]);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   useEffect(() => {
     const fetchGroups = async () => {
       try {
-        const response = await getOwnedGroups(); 
-        setGroups(Array.isArray(response?.data?.owned_groups) ? response.data.owned_groups : []);
+        const response = await getOwnedGroups();
+        setGroups(
+          Array.isArray(response?.data?.owned_groups)
+            ? response.data.owned_groups
+            : []
+        );
       } catch (error) {
         console.error("Error fetching owned groups:", error);
         setGroups([]);
@@ -81,7 +90,7 @@ const YourGroups = () => {
   const handleInviteResponse = async (groupId, accept) => {
     setInviteLoading(true);
     try {
-      await respondToGroupJoinRequest(groupId, null, accept);
+      await respondToGroupJoinRequest(groupId, null, accept); // Pass `accept` to indicate the user's choice
       setInviteRequests((prev) => prev.filter((invite) => invite.id !== groupId));
     } catch (error) {
       console.error("Error responding to invite:", error);
@@ -124,7 +133,9 @@ const YourGroups = () => {
           + Create New Group
         </Button>
         {loading ? (
-          <CircularProgress sx={{ color: "white", display: "block", margin: "auto" }} />
+          <CircularProgress
+            sx={{ color: "white", display: "block", margin: "auto" }}
+          />
         ) : groups.length === 0 ? (
           <Typography
             variant="h6"
@@ -227,14 +238,14 @@ const YourGroups = () => {
                   <Button
                     variant="contained"
                     sx={{ marginRight: 2 }}
-                    onClick={() => handleInviteResponse(invite.id, true)}
+                    onClick={() => handleInviteResponse(invite.id, true)} // Accept invite
                     disabled={inviteLoading}
                   >
                     Accept
                   </Button>
                   <Button
                     variant="outlined"
-                    onClick={() => handleInviteResponse(invite.id, false)}
+                    onClick={() => handleInviteResponse(invite.id, false)} // Decline invite
                     disabled={inviteLoading}
                   >
                     Decline
