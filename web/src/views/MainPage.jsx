@@ -11,9 +11,10 @@ function MainPage() {
     const fetchPosts = async () => {
       try {
         const fetchedPosts = await PostService.getPosts();
-        setPosts(fetchedPosts);
+        setPosts(fetchedPosts || []); // Ensure posts is always an array
       } catch (error) {
         console.error("Error fetching posts:", error);
+        setPosts([]); // Fallback to an empty array in case of error
       } finally {
         setLoading(false);
       }
@@ -52,7 +53,7 @@ function MainPage() {
           >
             Loading posts...
           </Typography>
-        ) : posts.length === 0 ? (
+        ) : posts?.length === 0 ? ( // Safely check posts.length
           <Typography
             variant="h6"
             sx={{ color: "white", textAlign: "center", marginTop: 4 }}
@@ -80,7 +81,11 @@ function MainPage() {
                     }}
                   >
                     <Avatar
-                      src={post.avatar !== "null" ? post.avatar : "https://via.placeholder.com/50"}
+                      src={
+                        post.avatar !== "null"
+                          ? post.avatar
+                          : "https://via.placeholder.com/50"
+                      }
                       alt={post.nickname || "Unknown"}
                       sx={{
                         width: 50,
