@@ -22,7 +22,6 @@ func NewGroupService(db *sql.DB, notificationService notification.Service) *Grou
 		notificationService: notificationService,
 	}
 }
-
 func (s *GroupService) CreateGroup(creatorID string, input model.CreateGroupInput) (*model.Group, error) {
 	group := &model.Group{
 		ID:          uuid.New().String(),
@@ -32,13 +31,11 @@ func (s *GroupService) CreateGroup(creatorID string, input model.CreateGroupInpu
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return nil, err
 	}
 	defer tx.Rollback()
-
 	_, err = tx.Exec(`
         INSERT INTO groups (id, creator_id, title, description, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?)`,
@@ -47,7 +44,6 @@ func (s *GroupService) CreateGroup(creatorID string, input model.CreateGroupInpu
 	if err != nil {
 		return nil, err
 	}
-
 	// Add creator as member
 	_, err = tx.Exec(`
         INSERT INTO group_members (group_id, user_id, status)
@@ -56,10 +52,8 @@ func (s *GroupService) CreateGroup(creatorID string, input model.CreateGroupInpu
 	if err != nil {
 		return nil, err
 	}
-
 	return group, tx.Commit()
 }
-
 func (s *GroupService) GetPendingInvites(userID string) ([]model.Group, error) {
 	rows, err := s.db.Query(`
         SELECT g.id, g.creator_id, g.title, g.description, g.created_at, g.updated_at
@@ -88,7 +82,6 @@ func (s *GroupService) GetPendingInvites(userID string) ([]model.Group, error) {
 	}
 	return groups, nil
 }
-
 func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs []string) error {
 	// Check if inviter is authorized
 	var status string
@@ -99,19 +92,16 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
 	if err != nil {
 		return errors.New("not authorized to invite to this group")
 	}
-
 	tx, err := s.db.Begin()
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
-
 	var groupTitle string
 	err = tx.QueryRow("SELECT title FROM groups WHERE id = ?", groupID).Scan(&groupTitle)
 	if err != nil {
 		return err
 	}
-
 	for _, userID := range userIDs {
 		// Check existing membership/invitation status
 		var existingStatus string
@@ -119,7 +109,6 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
             SELECT status FROM group_members 
             WHERE group_id = ? AND user_id = ?`,
 			groupID, userID).Scan(&existingStatus)
-
 		if err == nil {
 			// User already has a status
 			switch existingStatus {
@@ -148,7 +137,6 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
 				return err
 			}
 		}
-
 		// Check if there's already a pending notification
 		var notificationExists bool
 		err = tx.QueryRow(`
@@ -159,7 +147,6 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
 		if err != nil {
 			return err
 		}
-
 		if !notificationExists {
 			// Create notification only if one doesn't exist
 			notificationID := uuid.New().String()
@@ -179,10 +166,8 @@ func (s *GroupService) InviteToGroup(groupID string, inviterID string, userIDs [
 			}
 		}
 	}
-
 	return tx.Commit()
 }
-
 func (s *GroupService) RequestToJoinGroup(groupID string, userID string) error {
 	// Check if user already has a pending request or is a member
 	var status string
@@ -190,7 +175,6 @@ func (s *GroupService) RequestToJoinGroup(groupID string, userID string) error {
         SELECT status FROM group_members 
         WHERE group_id = ? AND user_id = ?`,
 		groupID, userID).Scan(&status)
-
 	if err == nil {
 		if status == "accepted" {
 			return errors.New("already a member of this group")
@@ -199,7 +183,6 @@ func (s *GroupService) RequestToJoinGroup(groupID string, userID string) error {
 			return errors.New("already have a pending request")
 		}
 	}
-
 	// Create join request
 	_, err = s.db.Exec(`
         INSERT INTO group_members (group_id, user_id, status)
@@ -208,14 +191,12 @@ func (s *GroupService) RequestToJoinGroup(groupID string, userID string) error {
 	if err != nil {
 		return err
 	}
-
 	// Create notification for group creator
 	var creatorID string
 	if err := s.db.QueryRow("SELECT creator_id FROM groups WHERE id = ?", groupID).Scan(&creatorID); err == nil {
 		var firstName, lastName string
 		s.db.QueryRow("SELECT first_name, last_name FROM users WHERE id = ?", userID).
 			Scan(&firstName, &lastName)
-
 		s.notificationService.CreateNotification(
 			creatorID,
 			"group_join_request",
@@ -223,7 +204,6 @@ func (s *GroupService) RequestToJoinGroup(groupID string, userID string) error {
 			groupID,
 		)
 	}
-
 	return nil
 }
 
@@ -281,7 +261,6 @@ func (s *GroupService) GetGroupPosts(groupID string, userID string) ([]model.Gro
 	}
 	return posts, nil
 }
-
 func (s *GroupService) GetGroupJoinRequests(groupID string, userID string) ([]struct {
 	UserID    string    `json:"user_id"`
 	FirstName string    `json:"first_name"`
@@ -327,7 +306,6 @@ func (s *GroupService) GetGroupJoinRequests(groupID string, userID string) ([]st
 	}
 	return requests, nil
 }
-
 func (s *GroupService) RespondToInvite(groupID string, userID string, accept bool) error {
 	// Verify the invitation exists
 	var status string
@@ -338,31 +316,25 @@ func (s *GroupService) RespondToInvite(groupID string, userID string, accept boo
 	if err != nil {
 		return errors.New("no pending invitation found")
 	}
-
 	newStatus := "declined"
 	if accept {
 		newStatus = "accepted"
 	}
-
 	_, err = s.db.Exec(`
         UPDATE group_members 
         SET status = ?, updated_at = ? 
         WHERE group_id = ? AND user_id = ?`,
 		newStatus, time.Now(), groupID, userID)
-
 	return err
 }
-
 func (s *GroupService) CreateEvent(groupID string, creatorID string, input model.CreateEventInput) (*model.GroupEvent, error) {
 	if err := s.verifyMembership(groupID, creatorID); err != nil {
 		return nil, err
 	}
-
 	eventTime, err := time.Parse(time.RFC3339, input.EventTime)
 	if err != nil {
 		return nil, errors.New("invalid event time format")
 	}
-
 	event := &model.GroupEvent{
 		ID:          uuid.New().String(),
 		GroupID:     groupID,
@@ -373,17 +345,14 @@ func (s *GroupService) CreateEvent(groupID string, creatorID string, input model
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
-
 	_, err = s.db.Exec(`
         INSERT INTO group_events (id, group_id, creator_id, title, description, event_time, created_at, updated_at)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
 		event.ID, event.GroupID, event.CreatorID, event.Title,
 		event.Description, event.EventTime, event.CreatedAt, event.UpdatedAt)
-
 	if err != nil {
 		return nil, err
 	}
-
 	// Notify all group members about the new event
 	rows, err := s.db.Query(`
         SELECT user_id FROM group_members 
@@ -403,15 +372,12 @@ func (s *GroupService) CreateEvent(groupID string, creatorID string, input model
 			}
 		}
 	}
-
 	return event, nil
 }
-
 func (s *GroupService) GetGroupEvents(groupID string, userID string) ([]model.GroupEvent, error) {
 	if err := s.verifyMembership(groupID, userID); err != nil {
 		return nil, err
 	}
-
 	rows, err := s.db.Query(`
         SELECT id, group_id, creator_id, title, description, event_time, created_at, updated_at
         FROM group_events
@@ -421,7 +387,6 @@ func (s *GroupService) GetGroupEvents(groupID string, userID string) ([]model.Gr
 		return nil, err
 	}
 	defer rows.Close()
-
 	var events []model.GroupEvent
 	for rows.Next() {
 		var event model.GroupEvent
@@ -430,7 +395,6 @@ func (s *GroupService) GetGroupEvents(groupID string, userID string) ([]model.Gr
 			&event.Description, &event.EventTime, &event.CreatedAt, &event.UpdatedAt); err != nil {
 			return nil, err
 		}
-
 		responses, err := s.getEventResponses(event.ID)
 		if err != nil {
 			return nil, err
@@ -438,33 +402,26 @@ func (s *GroupService) GetGroupEvents(groupID string, userID string) ([]model.Gr
 		event.Responses = responses
 		events = append(events, event)
 	}
-
 	return events, nil
 }
-
 func (s *GroupService) RespondToEvent(eventID string, userID string, response string) error {
 	var groupID string
 	err := s.db.QueryRow("SELECT group_id FROM group_events WHERE id = ?", eventID).Scan(&groupID)
 	if err != nil {
 		return err
 	}
-
 	if err := s.verifyMembership(groupID, userID); err != nil {
 		return err
 	}
-
 	if response != "going" && response != "not_going" {
 		return errors.New("invalid response type")
 	}
-
 	_, err = s.db.Exec(`
         INSERT OR REPLACE INTO event_responses (event_id, user_id, response, updated_at)
         VALUES (?, ?, ?, ?)`,
 		eventID, userID, response, time.Now())
-
 	return err
 }
-
 func (s *GroupService) GetAllGroups() ([]model.Group, error) {
 	rows, err := s.db.Query(`
         SELECT id, creator_id, title, description, created_at, updated_at
@@ -474,7 +431,6 @@ func (s *GroupService) GetAllGroups() ([]model.Group, error) {
 		return nil, err
 	}
 	defer rows.Close()
-
 	var groups []model.Group
 	for rows.Next() {
 		var group model.Group
@@ -490,14 +446,11 @@ func (s *GroupService) GetAllGroups() ([]model.Group, error) {
 		}
 		groups = append(groups, group)
 	}
-
 	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-
 	return groups, nil
 }
-
 func (s *GroupService) GetGroupMembers(groupID string, userID string) ([]struct {
 	UserID    string `json:"user_id"`
 	FirstName string `json:"first_name"`
@@ -507,7 +460,6 @@ func (s *GroupService) GetGroupMembers(groupID string, userID string) ([]struct 
 	if err := s.verifyMembership(groupID, userID); err != nil {
 		return nil, err
 	}
-
 	rows, err := s.db.Query(`
         SELECT u.id, u.first_name, u.last_name, u.email
         FROM users u
@@ -519,14 +471,12 @@ func (s *GroupService) GetGroupMembers(groupID string, userID string) ([]struct 
 		return nil, err
 	}
 	defer rows.Close()
-
 	var members []struct {
 		UserID    string `json:"user_id"`
 		FirstName string `json:"first_name"`
 		LastName  string `json:"last_name"`
 		Email     string `json:"email"`
 	}
-
 	for rows.Next() {
 		var member struct {
 			UserID    string `json:"user_id"`
@@ -539,10 +489,8 @@ func (s *GroupService) GetGroupMembers(groupID string, userID string) ([]struct 
 		}
 		members = append(members, member)
 	}
-
 	return members, nil
 }
-
 func (s *GroupService) verifyMembership(groupID string, userID string) error {
 	var status string
 	err := s.db.QueryRow(`
@@ -554,7 +502,6 @@ func (s *GroupService) verifyMembership(groupID string, userID string) error {
 	}
 	return nil
 }
-
 func (s *GroupService) GetEventResponses(eventID string, userID string) (map[string][]string, error) {
 	var groupID string
 	err := s.db.QueryRow(`
@@ -563,11 +510,9 @@ func (s *GroupService) GetEventResponses(eventID string, userID string) (map[str
 	if err != nil {
 		return nil, err
 	}
-
 	if err := s.verifyMembership(groupID, userID); err != nil {
 		return nil, err
 	}
-
 	rows, err := s.db.Query(`
         SELECT er.response, u.id, u.first_name, u.last_name
         FROM event_responses er
@@ -578,12 +523,10 @@ func (s *GroupService) GetEventResponses(eventID string, userID string) (map[str
 		return nil, err
 	}
 	defer rows.Close()
-
 	responses := map[string][]string{
 		"going":     {},
 		"not_going": {},
 	}
-
 	for rows.Next() {
 		var response, userID, firstName, lastName string
 		if err := rows.Scan(&response, &userID, &firstName, &lastName); err != nil {
@@ -592,10 +535,8 @@ func (s *GroupService) GetEventResponses(eventID string, userID string) (map[str
 		fullName := firstName + " " + lastName
 		responses[response] = append(responses[response], fullName)
 	}
-
 	return responses, nil
 }
-
 func (s *GroupService) getEventResponses(eventID string) (map[string]string, error) {
 	rows, err := s.db.Query(`
         SELECT user_id, response
@@ -605,7 +546,6 @@ func (s *GroupService) getEventResponses(eventID string) (map[string]string, err
 		return nil, err
 	}
 	defer rows.Close()
-
 	responses := make(map[string]string)
 	for rows.Next() {
 		var userID, response string
@@ -616,7 +556,6 @@ func (s *GroupService) getEventResponses(eventID string) (map[string]string, err
 	}
 	return responses, nil
 }
-
 func (s *GroupService) getPostComments(postID string) ([]model.GroupPostComment, error) {
 	rows, err := s.db.Query(`
         SELECT id, post_id, user_id, content, created_at, updated_at
@@ -639,18 +578,15 @@ func (s *GroupService) getPostComments(postID string) ([]model.GroupPostComment,
 	}
 	return comments, nil
 }
-
 func (s *GroupService) RespondToJoinRequest(groupID string, userID string, responderID string, accept bool) error {
 	var creatorID string
 	err := s.db.QueryRow("SELECT creator_id FROM groups WHERE id = ?", groupID).Scan(&creatorID)
 	if err != nil {
 		return errors.New("group not found")
 	}
-
 	if creatorID != responderID {
 		return errors.New("only group creator can accept/decline join requests")
 	}
-
 	var status string
 	err = s.db.QueryRow(`
         SELECT status FROM group_members 
@@ -659,17 +595,79 @@ func (s *GroupService) RespondToJoinRequest(groupID string, userID string, respo
 	if err != nil {
 		return errors.New("no pending request found")
 	}
-
 	newStatus := "declined"
 	if accept {
 		newStatus = "accepted"
 	}
-
 	_, err = s.db.Exec(`
         UPDATE group_members 
         SET status = ?, updated_at = ? 
         WHERE group_id = ? AND user_id = ?`,
 		newStatus, time.Now(), groupID, userID)
-
 	return err
+}
+
+func (s *GroupService) GetUserGroups(userID string) (struct {
+	OwnedGroups  []model.Group `json:"owned_groups"`
+	MemberGroups []model.Group `json:"member_groups"`
+}, error) {
+	var result struct {
+		OwnedGroups  []model.Group `json:"owned_groups"`
+		MemberGroups []model.Group `json:"member_groups"`
+	}
+
+	// Fetch groups where the user is the creator
+	rows, err := s.db.Query(`
+        SELECT id, creator_id, title, description, created_at, updated_at
+        FROM groups
+        WHERE creator_id = ?`,
+		userID)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var group model.Group
+		if err := rows.Scan(
+			&group.ID,
+			&group.CreatorID,
+			&group.Title,
+			&group.Description,
+			&group.CreatedAt,
+			&group.UpdatedAt,
+		); err != nil {
+			return result, err
+		}
+		result.OwnedGroups = append(result.OwnedGroups, group)
+	}
+
+	// Fetch groups where the user is a member
+	rows, err = s.db.Query(`
+        SELECT g.id, g.creator_id, g.title, g.description, g.created_at, g.updated_at
+        FROM groups g
+        JOIN group_members gm ON g.id = gm.group_id
+        WHERE gm.user_id = ? AND gm.status = 'accepted'`,
+		userID)
+	if err != nil {
+		return result, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var group model.Group
+		if err := rows.Scan(
+			&group.ID,
+			&group.CreatorID,
+			&group.Title,
+			&group.Description,
+			&group.CreatedAt,
+			&group.UpdatedAt,
+		); err != nil {
+			return result, err
+		}
+		result.MemberGroups = append(result.MemberGroups, group)
+	}
+
+	return result, nil
 }
