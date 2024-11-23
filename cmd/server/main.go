@@ -30,9 +30,11 @@ func main() {
 	authService := service.NewAuthService(db.DB)
 	authMiddleware := middleware.NewAuthMiddleware(sessionManager)
 	postService := service.NewPostService(db.DB)
-	followerService := service.NewFollowerService(db.DB)
 	userService := service.NewUserService(db.DB)
-	groupService := service.NewGroupService(db.DB)
+	notificationService := service.NewNotificationService(db.DB)
+	followerService := service.NewFollowerService(db.DB, notificationService)
+	groupService := service.NewGroupService(db.DB, notificationService)
+	webSocketHandler := handler.NewWebSocketHandler(notificationService)
 
 	// Initialize handlers
 	authHandler := &handler.AuthHandler{
@@ -51,7 +53,9 @@ func main() {
 	groupHandler := &handler.GroupHandler{
 		GroupService: groupService,
 	}
-	webSocketHandler := handler.NewWebSocketHandler()
+	notificationHandler := &handler.NotificationHandler{
+		NotificationService: notificationService,
+	}
 
 	// Setup routes
 	router := http.NewServeMux()
@@ -89,6 +93,7 @@ func main() {
 	router.HandleFunc("/groups/members", authMiddleware.RequireAuth(groupHandler.GetGroupMembers))
 	router.HandleFunc("/groups/join", authMiddleware.RequireAuth(groupHandler.RequestToJoinGroup))
 	router.HandleFunc("/groups/requests", authMiddleware.RequireAuth(groupHandler.GetGroupJoinRequests))
+	router.HandleFunc("/groups/requests/respond", authMiddleware.RequireAuth(groupHandler.HandleJoinRequestResponse))
 	router.HandleFunc("/groups/invite", authMiddleware.RequireAuth(groupHandler.HandleInvite))
 	router.HandleFunc("/groups/invites", authMiddleware.RequireAuth(groupHandler.GetPendingInvites))
 	router.HandleFunc("/groups/invites/respond", authMiddleware.RequireAuth(groupHandler.HandleInviteResponse))
@@ -103,6 +108,10 @@ func main() {
 
 	// WebSocket route
 	router.HandleFunc("/ws", webSocketHandler.HandleConnections)
+
+	// Notifications
+	router.HandleFunc("/notifications", authMiddleware.RequireAuth(notificationHandler.GetNotifications))
+	router.HandleFunc("/notifications/read", authMiddleware.RequireAuth(notificationHandler.MarkAsRead))
 
 	// Start server
 	log.Printf("Server starting on :8080")

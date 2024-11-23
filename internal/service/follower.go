@@ -3,18 +3,24 @@ package service
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"social-network/internal/model"
+	"social-network/internal/notification"
 	"time"
 
 	"github.com/google/uuid"
 )
 
 type FollowerService struct {
-	db *sql.DB
+	db                  *sql.DB
+	notificationService notification.Service
 }
 
-func NewFollowerService(db *sql.DB) *FollowerService {
-	return &FollowerService{db: db}
+func NewFollowerService(db *sql.DB, notificationService notification.Service) *FollowerService {
+	return &FollowerService{
+		db:                  db,
+		notificationService: notificationService,
+	}
 }
 
 func (s *FollowerService) SendFollowRequest(followerID, followingID string) (*model.FollowRequest, error) {
@@ -65,6 +71,21 @@ func (s *FollowerService) SendFollowRequest(followerID, followingID string) (*mo
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Create notification for private profile follow requests
+	if !isPublic {
+		var firstName, lastName string
+		err = s.db.QueryRow("SELECT first_name, last_name FROM users WHERE id = ?", followerID).
+			Scan(&firstName, &lastName)
+		if err == nil {
+			s.notificationService.CreateNotification(
+				followingID,
+				"follow_request",
+				fmt.Sprintf("%s %s wants to follow you", firstName, lastName),
+				request.ID,
+			)
+		}
 	}
 
 	return request, nil
