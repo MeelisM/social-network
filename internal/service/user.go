@@ -15,7 +15,7 @@ func NewUserService(db *sql.DB) *UserService {
 }
 
 func (s *UserService) GetAllUsers() ([]model.User, error) {
-	query := `SELECT id, nickname FROM users WHERE is_public = 1`
+	query := `SELECT id, nickname FROM users`
 
 	rows, err := s.db.Query(query)
 	if err != nil {
