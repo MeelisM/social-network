@@ -17,7 +17,6 @@ type Database struct {
 }
 
 func New(dbPath string) (*Database, error) {
-	// Create directory if it doesn't exist
 	dir := filepath.Dir(dbPath)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("error creating database directory: %v", err)
@@ -26,6 +25,10 @@ func New(dbPath string) (*Database, error) {
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("error opening database: %v", err)
+	}
+
+	if _, err := db.Exec("PRAGMA foreign_keys = ON;"); err != nil {
+		return nil, fmt.Errorf("error enabling foreign keys: %v", err)
 	}
 
 	if err := db.Ping(); err != nil {
