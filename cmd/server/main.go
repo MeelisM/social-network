@@ -32,9 +32,10 @@ func main() {
 	postService := service.NewPostService(db.DB)
 	userService := service.NewUserService(db.DB)
 	notificationService := service.NewNotificationService(db.DB)
+	messageService := service.NewMessageService(db.DB)
 	followerService := service.NewFollowerService(db.DB, notificationService)
 	groupService := service.NewGroupService(db.DB, notificationService)
-	webSocketHandler := handler.NewWebSocketHandler(notificationService)
+	webSocketHandler := handler.NewWebSocketHandler(notificationService, messageService)
 
 	// Initialize handlers
 	authHandler := &handler.AuthHandler{
@@ -55,6 +56,9 @@ func main() {
 	}
 	notificationHandler := &handler.NotificationHandler{
 		NotificationService: notificationService,
+	}
+	messageHandler := &handler.MessageHandler{
+		MessageService: messageService,
 	}
 
 	// Setup routes
@@ -102,6 +106,10 @@ func main() {
 	router.HandleFunc("/groups/events", authMiddleware.RequireAuth(groupHandler.HandleEvents))
 	router.HandleFunc("/groups/events/respond", authMiddleware.RequireAuth(groupHandler.HandleEventResponse))
 	router.HandleFunc("/groups/events/responses", authMiddleware.RequireAuth(groupHandler.GetEventResponses))
+
+	// Message routes
+	router.HandleFunc("/messages", authMiddleware.RequireAuth(messageHandler.GetMessageHistory))
+	router.HandleFunc("/messages/send", authMiddleware.RequireAuth(messageHandler.SendMessage))
 
 	// User routes
 	router.HandleFunc("/users", userHandler.GetAllUsers)
