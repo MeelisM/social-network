@@ -1,21 +1,97 @@
-import { Box, Typography, Button, List, ListItem, ListItemText, Divider, IconButton, Paper, TextField } from '@mui/material';
+import React, { useState, useEffect } from 'react';
+import {
+  Box,
+  Typography,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  IconButton,
+  Paper,
+  TextField,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { useState } from 'react';
-import { followers } from '../mockData'; 
-
-function getRandomColor() {
-  const hue = Math.floor(Math.random() * 360);
-  const saturation = 70 + Math.random() * 20;
-  const lightness = 60 + Math.random() * 10;
-  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
-}
+import { getFriendList } from '../service/friendlist';
+import chatService from '../service/chat';
 
 function ChatSidebar({ onClose }) {
-  const [showSidebar, setShowSidebar] = useState(true);
+  const [friends, setFriends] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [messages, setMessages] = useState([]); // Initialize as an empty array
+  const [newMessage, setNewMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!showSidebar) return null;
+  useEffect(() => {
+    const fetchFriends = async () => {
+      try {
+        const friendList = await getFriendList();
+        setFriends(friendList);
+      } catch (err) {
+        console.error('Error loading friends:', err.message);
+        setError('Failed to load friend list.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFriends();
+  }, []);
+
+  useEffect(() => {
+    if (selectedUser) {
+      const fetchMessages = async () => {
+        try {
+          const messageHistory = await chatService.getMessageHistory(selectedUser.id);
+          setMessages(Array.isArray(messageHistory) ? messageHistory : []); // Ensure it's always an array
+        } catch (err) {
+          console.error('Error fetching messages:', err);
+          setMessages([]); // Fallback to empty array on error
+        }
+      };
+
+      fetchMessages();
+
+      const handleIncomingMessage = (message) => {
+        if (
+          message.sender_id === selectedUser.id ||
+          message.recipient_id === selectedUser.id
+        ) {
+          setMessages((prev) => [...prev, message]);
+        }
+      };
+
+      chatService.addMessageListener(handleIncomingMessage);
+
+      return () => {
+        chatService.removeMessageListener(handleIncomingMessage);
+      };
+    }
+  }, [selectedUser]);
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    if (!newMessage.trim() || !selectedUser) return;
+
+    const message = {
+      recipient_id: selectedUser.id,
+      content: newMessage,
+    };
+
+    chatService.sendMessage(selectedUser.id, newMessage);
+    setMessages((prev) => [
+      ...prev,
+      {
+        sender_id: 'me', // Replace with the current user's ID from context/auth
+        recipient_id: selectedUser.id,
+        content: newMessage,
+        created_at: new Date().toISOString(),
+      },
+    ]);
+    setNewMessage('');
+  };
 
   return (
     <Box
@@ -25,7 +101,7 @@ function ChatSidebar({ onClose }) {
         color: 'white',
         padding: 2,
         position: 'fixed',
-        top: 64, 
+        top: 64,
         right: 0,
         bottom: 0,
         display: 'flex',
@@ -43,7 +119,7 @@ function ChatSidebar({ onClose }) {
               borderBottom: '1px solid #333',
               paddingBottom: 2,
               marginBottom: 2,
-              paddingTop: 4, 
+              paddingTop: 4,
             }}
           >
             <IconButton
@@ -53,7 +129,7 @@ function ChatSidebar({ onClose }) {
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
-              Chat with {selectedUser.name}
+              Chat with {selectedUser.nickname}
             </Typography>
           </Box>
 
@@ -67,17 +143,34 @@ function ChatSidebar({ onClose }) {
               borderRadius: 2,
             }}
           >
-            {/* Placeholder messages */}
-            <Box sx={{ marginBottom: 2, display: 'flex', justifyContent: 'flex-start' }}>
-              <Paper sx={{ padding: 2, bgcolor: '#333', color: 'white', borderRadius: 3 }}>
-                <Typography>Hello! How are you?</Typography>
-              </Paper>
-            </Box>
-            <Box sx={{ marginBottom: 2, display: 'flex', justifyContent: 'flex-end' }}>
-              <Paper sx={{ padding: 2, bgcolor: '#90caf9', color: 'black', borderRadius: 3 }}>
-                <Typography>I'm good, thanks!</Typography>
-              </Paper>
-            </Box>
+            {messages.length > 0 ? (
+              messages.map((message, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: message.sender_id === 'me' ? 'flex-end' : 'flex-start',
+                    marginBottom: 2,
+                  }}
+                >
+                  <Paper
+                    sx={{
+                      padding: 2,
+                      maxWidth: '70%',
+                      bgcolor: message.sender_id === 'me' ? '#90caf9' : '#333',
+                      color: message.sender_id === 'me' ? '#000' : '#fff',
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Typography>{message.content}</Typography>
+                  </Paper>
+                </Box>
+              ))
+            ) : (
+              <Typography sx={{ color: '#b0bec5', textAlign: 'center' }}>
+                No messages yet. Start the conversation!
+              </Typography>
+            )}
           </Box>
 
           {/* Chat Input */}
@@ -90,15 +183,14 @@ function ChatSidebar({ onClose }) {
               paddingTop: 2,
               borderTop: '1px solid #333',
             }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              // Handle sending messages
-            }}
+            onSubmit={handleSendMessage}
           >
             <TextField
               placeholder="Type a message..."
               fullWidth
               variant="outlined"
+              value={newMessage}
+              onChange={(e) => setNewMessage(e.target.value)}
               sx={{
                 bgcolor: '#333',
                 borderRadius: 2,
@@ -128,7 +220,7 @@ function ChatSidebar({ onClose }) {
               justifyContent: 'space-between',
               alignItems: 'center',
               marginBottom: 2,
-              paddingTop: 4, 
+              paddingTop: 4,
             }}
           >
             <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
@@ -136,7 +228,6 @@ function ChatSidebar({ onClose }) {
             </Typography>
             <Button
               onClick={() => {
-                setShowSidebar(false);
                 if (onClose) onClose();
               }}
               sx={{
@@ -152,80 +243,44 @@ function ChatSidebar({ onClose }) {
           <Divider sx={{ bgcolor: '#333', marginBottom: 2 }} />
 
           {/* User List */}
-          <List
-            sx={{
-              flexGrow: 1,
-              overflowY: 'auto',
-              padding: 0,
-            }}
-          >
-            {followers.map((follower) => {
-              const color = getRandomColor();
-              const initials = follower.name
-                .split(' ')
-                .map((word) => word[0])
-                .join('');
-
-              return (
+          {loading ? (
+            <Typography>Loading friends...</Typography>
+          ) : error ? (
+            <Typography sx={{ color: 'red' }}>{error}</Typography>
+          ) : friends.length === 0 ? (
+            <Typography>No friends to chat with.</Typography>
+          ) : (
+            <List
+              sx={{
+                flexGrow: 1,
+                overflowY: 'auto',
+                padding: 0,
+              }}
+            >
+              {friends.map((friend) => (
                 <ListItem
                   button
-                  key={follower.id}
+                  key={friend.id}
                   sx={{
                     display: 'flex',
                     alignItems: 'center',
                     padding: 1,
                     borderRadius: 1,
-                    '&:hover': {
-                      bgcolor: '#333',
-                    },
+                    '&:hover': { bgcolor: '#333' },
                   }}
-                  onClick={() => setSelectedUser(follower)}
+                  onClick={() => setSelectedUser(friend)}
                 >
-                  <Box
-                    sx={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: '50%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      marginRight: 2,
-                      fontSize: '1rem',
-                      fontWeight: 'bold',
-                      color: 'white',
-                      bgcolor: follower.avatar ? 'transparent' : color,
-                      backgroundImage: follower.avatar ? `url(${follower.avatar})` : 'none',
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                    }}
-                  >
-                    {!follower.avatar && initials}
-                  </Box>
                   <ListItemText
-                    primary={follower.name}
+                    primary={friend.nickname || 'Unknown'}
                     primaryTypographyProps={{
                       variant: 'body1',
                       color: 'white',
                     }}
                   />
                 </ListItem>
-              );
-            })}
-          </List>
-
-          {/* Footer */}
-          <Divider sx={{ bgcolor: '#333', marginTop: 2 }} />
-          <Typography
-            variant="body1"
-            sx={{
-              color: '#b0bec5',
-              textAlign: 'center',
-              marginTop: 2,
-              fontSize: '1.5rem',
-            }}
-          >
-            Select a user to start chatting
-          </Typography>
+              ))}
+            </List>
+          )}
         </Box>
       )}
     </Box>
