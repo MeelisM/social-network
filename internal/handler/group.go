@@ -156,6 +156,30 @@ func (h *GroupHandler) HandleInviteResponse(w http.ResponseWriter, r *http.Reque
 
 	var input struct {
 		GroupID string `json:"group_id"`
+		Accept  bool   `json:"accept"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	if err := h.GroupService.RespondToInvite(input.GroupID, userID, input.Accept); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (h *GroupHandler) HandleJoinRequestResponse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input struct {
+		GroupID string `json:"group_id"`
 		UserID  string `json:"user_id"`
 		Accept  bool   `json:"accept"`
 	}
@@ -165,10 +189,11 @@ func (h *GroupHandler) HandleInviteResponse(w http.ResponseWriter, r *http.Reque
 	}
 
 	responderID := r.Context().Value("user_id").(string)
-	if err := h.GroupService.RespondToInvite(input.GroupID, input.UserID, responderID, input.Accept); err != nil {
+	if err := h.GroupService.RespondToJoinRequest(input.GroupID, input.UserID, responderID, input.Accept); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	w.WriteHeader(http.StatusOK)
 }
 

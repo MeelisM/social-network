@@ -3,6 +3,7 @@ package handler
 import (
 	"log"
 	"net/http"
+	"social-network/internal/service"
 
 	"github.com/gorilla/websocket"
 )
@@ -13,10 +14,14 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-type WebSocketHandler struct{}
+type WebSocketHandler struct {
+	notificationService *service.NotificationService
+}
 
-func NewWebSocketHandler() *WebSocketHandler {
-	return &WebSocketHandler{}
+func NewWebSocketHandler(notificationService *service.NotificationService) *WebSocketHandler {
+	return &WebSocketHandler{
+		notificationService: notificationService,
+	}
 }
 
 func (h *WebSocketHandler) HandleConnections(w http.ResponseWriter, r *http.Request) {
@@ -27,7 +32,14 @@ func (h *WebSocketHandler) HandleConnections(w http.ResponseWriter, r *http.Requ
 	}
 	defer conn.Close()
 
-	log.Println("Client connected")
+	// Get userID from context (set by auth middleware)
+	userID := r.Context().Value("user_id").(string)
+
+	// Register connection
+	h.notificationService.RegisterConnection(userID, conn)
+	defer h.notificationService.RemoveConnection(userID)
+
+	log.Printf("Client connected: %s", userID)
 
 	for {
 		var msg map[string]interface{}
@@ -37,18 +49,26 @@ func (h *WebSocketHandler) HandleConnections(w http.ResponseWriter, r *http.Requ
 			break
 		}
 
-		log.Printf("Received message: %v\n", msg)
+		// Handle different message types
+		switch msg["type"] {
+		case "get_notifications":
+			notifications, err := h.notificationService.GetUserNotifications(userID)
+			if err != nil {
+				log.Printf("Error getting notifications: %v", err)
+				continue
+			}
+			response := map[string]interface{}{
+				"type":    "notifications",
+				"content": notifications,
+			}
+			conn.WriteJSON(response)
 
-		response := map[string]string{
-			"type":    "response",
-			"content": "Message received",
-		}
-
-		if err := conn.WriteJSON(response); err != nil {
-			log.Println("WebSocket write error:", err)
-			break
+		case "mark_read":
+			if notifID, ok := msg["notification_id"].(string); ok {
+				h.notificationService.MarkAsRead(notifID, userID)
+			}
 		}
 	}
 
-	log.Println("Client disconnected")
+	log.Printf("Client disconnected: %s", userID)
 }
