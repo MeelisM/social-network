@@ -9,7 +9,7 @@ import {
   Typography,
 } from "@mui/material";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"; // current user data
+import { useAuth } from "../context/AuthContext"; 
 import HomeIcon from "@mui/icons-material/Home";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import SettingsIcon from "@mui/icons-material/Settings";
@@ -21,7 +21,7 @@ import ExploreIcon from "@mui/icons-material/Explore";
 
 function Sidebar() {
   const navigate = useNavigate();
-  const { user } = useAuth(); // current user data
+  const { user } = useAuth(); 
 
   return (
     <Box sx={{ width: 240, bgcolor: "#1f1f1f", color: "white", paddingTop: 2 }}>
@@ -53,20 +53,11 @@ function Sidebar() {
             primaryTypographyProps={{ variant: "h6", color: "white" }}
           />
         </ListItem>
-        <ListItem button>
-          <ListItemIcon>
-            <SettingsIcon color="primary" fontSize="large" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Settings"
-            primaryTypographyProps={{ variant: "h6", color: "white" }}
-          />
-        </ListItem>
       </List>
       <Divider sx={{ bgcolor: "#90caf9", marginY: 2 }} />
 
       <Typography
-        variant="subtitle2"
+        variant="subtitle2" 
         sx={{ paddingLeft: 2, color: "#90caf9", fontSize: "1.1rem" }}
       >
         For You
@@ -99,15 +90,6 @@ function Sidebar() {
             primaryTypographyProps={{ variant: "h6", color: "white" }}
           />
         </ListItem>
-        <ListItem button>
-          <ListItemIcon>
-            <FavoriteIcon color="primary" fontSize="large" />
-          </ListItemIcon>
-          <ListItemText
-            primary="Favourites"
-            primaryTypographyProps={{ variant: "h6", color: "white" }}
-          />
-        </ListItem>
       </List>
       <Divider sx={{ bgcolor: "#90caf9", marginY: 2 }} />
 
@@ -133,15 +115,6 @@ function Sidebar() {
           </ListItemIcon>
           <ListItemText
             primary="All Users"
-            primaryTypographyProps={{ variant: "h6", color: "white" }}
-          />
-        </ListItem>
-        <ListItem button>
-          <ListItemIcon>
-            <PeopleIcon color="primary" fontSize="large" />
-          </ListItemIcon>
-          <ListItemText
-            primary="New Members"
             primaryTypographyProps={{ variant: "h6", color: "white" }}
           />
         </ListItem>
