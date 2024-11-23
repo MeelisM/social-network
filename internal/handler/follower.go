@@ -62,13 +62,26 @@ func (h *FollowerHandler) GetFollowers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Context().Value("user_id").(string)
+	// Check if user_id is provided in the URL query parameters
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		// Fallback to context if user_id is not provided in the query
+		ctxUserID, ok := r.Context().Value("user_id").(string)
+		if !ok || ctxUserID == "" {
+			http.Error(w, "User ID not found", http.StatusBadRequest)
+			return
+		}
+		userID = ctxUserID
+	}
+
+	// Fetch followers
 	followers, err := h.FollowerService.GetFollowers(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Return followers as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(followers)
 }
@@ -79,13 +92,26 @@ func (h *FollowerHandler) GetFollowing(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	userID := r.Context().Value("user_id").(string)
+	// Check if user_id is provided in the URL query parameters
+	userID := r.URL.Query().Get("user_id")
+	if userID == "" {
+		// Fallback to context if user_id is not provided in the query
+		ctxUserID, ok := r.Context().Value("user_id").(string)
+		if !ok || ctxUserID == "" {
+			http.Error(w, "User ID not found", http.StatusBadRequest)
+			return
+		}
+		userID = ctxUserID
+	}
+
+	// Fetch following
 	following, err := h.FollowerService.GetFollowing(userID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Return following as JSON
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(following)
 }

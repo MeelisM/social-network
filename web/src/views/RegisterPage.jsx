@@ -102,7 +102,7 @@ function RegisterPage() {
 
       const data = await response.json();
       console.log('Registration successful:', data);
-      navigate('/main'); // Redirect to main page
+      navigate('/login'); 
     } catch (err) {
       console.error('Error during registration:', err.message);
       setError(err.message);
