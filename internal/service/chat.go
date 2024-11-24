@@ -57,7 +57,7 @@ func (s *MessageService) SendMessage(senderID, recipientID, content string) erro
 }
 
 // Retrieve message history between two users
-func (s *MessageService) GetMessageHistory(userID1, userID2 string) ([]map[string]interface{}, error) {
+func (s *MessageService) GetMessageHistory(userID1, userID2 string) (map[string][]map[string]interface{}, error) {
 	rows, err := s.db.Query(`
         SELECT id, sender_id, recipient_id, content, created_at, is_read
         FROM messages
@@ -71,7 +71,10 @@ func (s *MessageService) GetMessageHistory(userID1, userID2 string) ([]map[strin
 	}
 	defer rows.Close()
 
-	var messages []map[string]interface{}
+	// Categorize messages
+	sentMessages := []map[string]interface{}{}
+	receivedMessages := []map[string]interface{}{}
+
 	for rows.Next() {
 		var id, senderID, recipientID, content string
 		var createdAt time.Time
@@ -90,10 +93,18 @@ func (s *MessageService) GetMessageHistory(userID1, userID2 string) ([]map[strin
 			"created_at":   createdAt,
 			"is_read":      isRead,
 		}
-		messages = append(messages, message)
+
+		if senderID == userID1 {
+			sentMessages = append(sentMessages, message)
+		} else {
+			receivedMessages = append(receivedMessages, message)
+		}
 	}
 
-	return messages, nil
+	return map[string][]map[string]interface{}{
+		"sent_messages":     sentMessages,
+		"received_messages": receivedMessages,
+	}, nil
 }
 
 // Mark messages as read

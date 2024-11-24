@@ -1,59 +1,102 @@
-import React, { useEffect, useState } from "react";
-import webSocketService from "../service/websocket";
+import React, { useState, useEffect } from "react";
+import webSocketService from "../service/websocket"; // Your WebSocket service
 
-function WebSocketTester() {
-  const [messages, setMessages] = useState([]);
-  const [inputMessage, setInputMessage] = useState("");
+const WebSocketTester = () => {
+  const [message, setMessage] = useState("");
+  const [receivedMessages, setReceivedMessages] = useState([]);
+  const [error, setError] = useState(null);
+
+  const userId = "46ff8242-05be-4b99-b01c-d09b33a8aad6"; // Replace with your specific user ID
+
+  // Fetch initial messages through WebSocket
+  const fetchMessagesThroughWebSocket = () => {
+    try {
+      const payload = {
+        type: "get_message_history",
+        chat_id: userId, // Use chat_id to specify the user
+      };
+      webSocketService.sendMessage(payload);
+      console.log("Requesting message history via WebSocket:", payload);
+    } catch (err) {
+      console.error("Error fetching message history via WebSocket:", err);
+      setError(err.message);
+    }
+  };
+
+  // Send a message via WebSocket
+  const sendMessage = () => {
+    if (message.trim() !== "") {
+      const messagePayload = {
+        type: "send_message",
+        recipient_id: userId, // Specify recipient
+        content: message,
+      };
+      webSocketService.sendMessage(messagePayload);
+      console.log("Sending message:", messagePayload);
+      setMessage(""); // Clear the input
+    }
+  };
 
   useEffect(() => {
-    webSocketService.connect("ws://localhost:8080/ws");
+    // Set up WebSocket connection
+    webSocketService.connect("ws://localhost:8080/ws"); // Adjust URL if needed
 
-    const handleIncomingMessage = (message) => {
-      setMessages((prevMessages) => [...prevMessages, message]);
+    // Set up WebSocket message listener
+    const handleWebSocketMessage = (data) => {
+      console.log("Received WebSocket message:", data);
+      if (data.type === "message_history") {
+        // Handle message history
+        setReceivedMessages(data.content || []);
+      } else if (data.type === "new_message") {
+        // Append new real-time messages
+        setReceivedMessages((prev) => [...prev, data]);
+      }
     };
 
-    webSocketService.addMessageListener(handleIncomingMessage);
+    webSocketService.addMessageListener(handleWebSocketMessage);
 
+    // Fetch messages when the component mounts
+    fetchMessagesThroughWebSocket();
+
+    // Clean up WebSocket listener on unmount
     return () => {
-      webSocketService.removeMessageListener(handleIncomingMessage);
+      webSocketService.removeMessageListener(handleWebSocketMessage);
       webSocketService.disconnect();
     };
   }, []);
 
-  const handleSendMessage = () => {
-    if (inputMessage.trim() === "") return;
-
-    webSocketService.sendMessage({ type: "test", content: inputMessage });
-    setInputMessage("");
-  };
-
   return (
-    <div style={{ padding: "20px", color: "white" }}>
-      <h2>WebSocket Tester</h2>
+    <div style={{ padding: "20px" }}>
+      <h1>WebSocket Tester</h1>
+
+      {/* Fetch Messages Button */}
+      <div>
+        <button onClick={fetchMessagesThroughWebSocket}>Fetch Messages</button>
+      </div>
+
+      {/* Send Message */}
       <div>
         <input
           type="text"
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="Type a message"
-          style={{ padding: "10px", width: "300px", marginRight: "10px" }}
+          placeholder="Type a message..."
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
         />
-        <button onClick={handleSendMessage} style={{ padding: "10px 20px" }}>
-          Send
-        </button>
+        <button onClick={sendMessage}>Send</button>
       </div>
-      <div style={{ marginTop: "20px" }}>
-        <h3>Messages:</h3>
+
+      {/* Display Messages */}
+      <div>
+        <h2>Received Messages:</h2>
+        {error && <p style={{ color: "red" }}>Error: {error}</p>}
         <ul>
-          {messages.map((msg, index) => (
-            <li key={index} style={{ marginBottom: "10px" }}>
-              {JSON.stringify(msg)}
-            </li>
+          {receivedMessages.map((msg, index) => (
+            <li key={index}>{JSON.stringify(msg)}</li>
           ))}
         </ul>
       </div>
     </div>
   );
-}
+};
 
 export default WebSocketTester;
