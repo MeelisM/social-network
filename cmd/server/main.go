@@ -116,7 +116,7 @@ func main() {
 	router.HandleFunc("/users/", userHandler.GetUserByUUID)
 
 	// WebSocket route
-	router.HandleFunc("/ws", webSocketHandler.HandleConnections)
+	router.HandleFunc("/ws", authMiddleware.RequireAuth(webSocketHandler.HandleConnections))
 
 	// Notifications
 	router.HandleFunc("/notifications", authMiddleware.RequireAuth(notificationHandler.GetNotifications))
