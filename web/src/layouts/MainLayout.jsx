@@ -10,7 +10,6 @@ import { useAuth } from '../context/AuthContext';
 
 const drawerWidth = 240;
 
-// Shared layout styles for consistent spacing
 export const layoutStyles = {
   sectionSpacing: { marginBottom: 8 },
   boxSpacing: { padding: 3, backgroundColor: '#1f1f1f', borderRadius: 3 },
@@ -23,120 +22,169 @@ function MainLayout({ children }) {
   const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
   const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
   const [unreadCounts, setUnreadCounts] = useState({});
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [messages, setMessages] = useState([]);
   const { user } = useAuth();
 
   // Listener for incoming messages
-  const handleIncomingMessage = useCallback(
-    (message) => {
-      if (!user) return;
+  const handleIncomingMessage = useCallback((message) => {
+    if (!user) return;
 
+    console.log('Received message:', message);
+
+    if (message.type === "new_private_message") {
+      const senderId = message.content.sender_id;
+      const recipientId = message.content.recipient_id;
+
+      // If it's a message for current chat
       if (
-        message.type === "new_private_message" &&
-        message.content.recipient_id === user.user_id
+        selectedUser?.type === "private" &&
+        (selectedUser.id === senderId || selectedUser.id === recipientId)
       ) {
-        const chatId = message.content.sender_id;
-
-        setUnreadCounts((prevCounts) => {
-          const count = prevCounts[chatId] || 0;
-          const newCounts = { ...prevCounts, [chatId]: count + 1 };
-          const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
-          setHasUnreadMessages(totalUnread > 0);
-          return newCounts;
-        });
-      } else if (message.type === "unread_messages") {
-        // Handle the initial unread messages received from the server
-        const { has_unread, senders } = message.content;
-
-        // Ensure senders is an array
-        const senderList = Array.isArray(senders) ? senders : [];
-
-        setUnreadCounts(() => {
-          const newCounts = {};
-          senderList.forEach((senderId) => {
-            newCounts[senderId] = 1; // Assuming at least one unread message
-          });
+        setMessages((prev) => [
+          ...prev,
+          {
+            ...message.content,
+            isSent: senderId === user.user_id,
+          },
+        ]);
+      }
+      // If we're the recipient and it's not current chat
+      else if (recipientId === user.user_id) {
+        setUnreadCounts((prev) => {
+          const count = prev[senderId] || 0;
+          const newCounts = { ...prev, [senderId]: count + 1 };
           const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
           setHasUnreadMessages(totalUnread > 0);
           return newCounts;
         });
       }
-      // Handle other message types if needed
-    },
-    [user]
-  );
+    } else if (message.type === "unread_messages") {
+      const senderList = Array.isArray(message.content.senders) ? message.content.senders : [];
+      setUnreadCounts((prev) => {
+        const newCounts = { ...prev };
+        senderList.forEach((senderId) => {
+          if (senderId) newCounts[senderId] = 1;
+        });
+        const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
+        setHasUnreadMessages(totalUnread > 0);
+        return newCounts;
+      });
+    } else if (message.type === "private_message_history") {
+      if (selectedUser?.type === "private") {
+        const messagesArray = [
+          ...(message.content.sent || []),
+          ...(message.content.received || []),
+        ];
+        const data = messagesArray.map((msg) => ({
+          ...msg,
+          isSent: msg.sender_id === user.user_id,
+        }));
+        data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(data);
+      }
+    }
+  }, [user, selectedUser]);
 
+  // Handle WebSocket connection and message polling
   useEffect(() => {
     if (!user) return;
 
-    // Connect to WebSocket if not already connected
-    if (!webSocketService.isConnected && !webSocketService.isConnecting) {
-      const wsUrl = `${process.env.REACT_APP_WEBSOCKET_URL}/ws?token=${localStorage.getItem('token')}`;
-      webSocketService.connect(wsUrl);
-    }
+    let messageInterval;
+    let unreadInterval;
 
+    const connectAndInitialize = () => {
+      if (!webSocketService.isConnected && !webSocketService.isConnecting) {
+        const wsUrl = `${process.env.REACT_APP_WEBSOCKET_URL}/ws?token=${localStorage.getItem(
+          'token'
+        )}`;
+        webSocketService.connect(wsUrl);
+      }
+    };
+
+    const pollMessages = () => {
+      if (webSocketService.isConnected && selectedUser) {
+        webSocketService.getMessageHistory(selectedUser);
+      }
+    };
+
+    const pollUnread = () => {
+      if (webSocketService.isConnected) {
+        webSocketService.getUnreadMessages();
+      }
+    };
+
+    connectAndInitialize();
     webSocketService.addMessageListener(handleIncomingMessage);
 
-    // Request unread messages when the component mounts or when the user logs in
-    webSocketService.getUnreadMessages();
+    // Set up polling intervals
+    messageInterval = setInterval(pollMessages, 3000); // Poll every 3 seconds for new messages
+    unreadInterval = setInterval(pollUnread, 5000); // Poll every 5 seconds for unread messages
+
+    // Initial polls
+    pollMessages();
+    pollUnread();
 
     return () => {
+      clearInterval(messageInterval);
+      clearInterval(unreadInterval);
       webSocketService.removeMessageListener(handleIncomingMessage);
     };
-  }, [user, handleIncomingMessage]);
+  }, [user, handleIncomingMessage, selectedUser]);
 
-  const handleLogout = () => {
-    console.log('Logout clicked');
-    // Logout logic placeholder
-  };
-
-  const handleToggleChat = () => {
-    setChatSidebarOpen(!isChatSidebarOpen);
-    setNotificationSidebarOpen(false); // Close notifications if chat is open
-    // Do not reset hasUnreadMessages here
-  };
-
-  const handleToggleNotification = () => {
-    setNotificationSidebarOpen(!isNotificationSidebarOpen);
-    setChatSidebarOpen(false); // Close chat if notifications are open
-    // Reset unread notifications when notification sidebar is opened
-    if (!isNotificationSidebarOpen) {
-      setHasUnreadNotifications(false);
+  const handleChatSelect = useCallback((user) => {
+    if (!user) {
+      setSelectedUser(null);
+      setMessages([]);
+      return;
     }
-  };
 
-  // Reset unread counts when a chat is opened
-  const handleChatSelect = useCallback((chatId) => {
-    setUnreadCounts((prevCounts) => {
-      const newCounts = { ...prevCounts };
-      delete newCounts[chatId];
-      // Update hasUnreadMessages
+    const chatUser = { ...user, type: user.type || 'private' };
+    setSelectedUser(chatUser);
+    setMessages([]); // Clear messages when switching chats
+
+    // Clear unread count for this chat
+    setUnreadCounts((prev) => {
+      const newCounts = { ...prev };
+      delete newCounts[user.id];
       const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
       setHasUnreadMessages(totalUnread > 0);
       return newCounts;
     });
 
-    // Mark messages as read for the selected chat
-    const selectedUser = { id: chatId, type: 'private' };
-    webSocketService.markMessagesAsRead(selectedUser);
+    // Mark messages as read and fetch message history
+    if (webSocketService.isConnected) {
+      webSocketService.markMessagesAsRead(chatUser);
+      webSocketService.getMessageHistory(chatUser);
+    }
   }, []);
+
+  const handleToggleChat = () => {
+    setChatSidebarOpen(!isChatSidebarOpen);
+    setNotificationSidebarOpen(false);
+  };
+
+  const handleToggleNotification = () => {
+    setNotificationSidebarOpen(!isNotificationSidebarOpen);
+    setChatSidebarOpen(false);
+    if (!isNotificationSidebarOpen) {
+      setHasUnreadNotifications(false);
+    }
+  };
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <CssBaseline />
-
-      {/* Header */}
       <Header
         onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
         onToggleChat={handleToggleChat}
         onToggleNotification={handleToggleNotification}
-        onLogout={handleLogout}
+        onLogout={() => webSocketService.disconnect()}
         hasUnreadMessages={hasUnreadMessages}
         hasUnreadNotifications={hasUnreadNotifications}
       />
 
-      {/* Main Content Area with Sidebars */}
       <Box sx={{ display: 'flex', flexGrow: 1 }}>
-        {/* Left Sidebar */}
         {isSidebarOpen && (
           <Box
             sx={{
@@ -156,7 +204,6 @@ function MainLayout({ children }) {
           </Box>
         )}
 
-        {/* Main Content */}
         <Box
           component="main"
           sx={{
@@ -176,7 +223,6 @@ function MainLayout({ children }) {
           {children}
         </Box>
 
-        {/* Right Chat Sidebar */}
         {isChatSidebarOpen && (
           <Box
             sx={{
@@ -194,11 +240,13 @@ function MainLayout({ children }) {
               onClose={() => setChatSidebarOpen(false)}
               onChatSelect={handleChatSelect}
               unreadCounts={unreadCounts}
+              selectedUser={selectedUser}
+              messages={messages}
+              setMessages={setMessages}
             />
           </Box>
         )}
 
-        {/* Right Notification Sidebar */}
         {isNotificationSidebarOpen && (
           <Box
             sx={{
@@ -214,13 +262,11 @@ function MainLayout({ children }) {
           >
             <NotificationSidebar
               onClose={() => setNotificationSidebarOpen(false)}
-              onHasUnreadNotificationsChange={(hasUnread) => setHasUnreadNotifications(hasUnread)}
+              onHasUnreadNotificationsChange={setHasUnreadNotifications}
             />
           </Box>
         )}
       </Box>
-
-      {/* Footer */}
       <Footer />
     </Box>
   );
