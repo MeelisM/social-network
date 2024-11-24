@@ -85,9 +85,16 @@ func (s *ChatService) SendPrivateMessage(senderID, recipientID, content string) 
 
 // Send group message
 func (s *ChatService) SendGroupMessage(groupID string, senderID string, content string) error {
+	// Start transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return fmt.Errorf("error starting transaction: %v", err)
+	}
+	defer tx.Rollback()
+
 	// Verify sender is a group member
 	var status string
-	err := s.db.QueryRow(`
+	err = tx.QueryRow(`
         SELECT status FROM group_members 
         WHERE group_id = ? AND user_id = ? AND status = 'accepted'`,
 		groupID, senderID).Scan(&status)
@@ -104,35 +111,35 @@ func (s *ChatService) SendGroupMessage(groupID string, senderID string, content 
 		Type:      "group",
 	}
 
-	// Store message
-	_, err = s.db.Exec(`
+	// Store message within transaction
+	_, err = tx.Exec(`
         INSERT INTO group_messages (id, group_id, sender_id, content, created_at)
         VALUES (?, ?, ?, ?, ?)`,
 		message.ID, message.GroupID, message.SenderID, message.Content, message.CreatedAt,
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("error inserting message: %v", err)
 	}
 
 	// Get group info and sender name
 	var groupTitle, senderName string
-	err = s.db.QueryRow("SELECT first_name FROM users WHERE id = ?", senderID).Scan(&senderName)
+	err = tx.QueryRow("SELECT first_name FROM users WHERE id = ?", senderID).Scan(&senderName)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting sender name: %v", err)
 	}
 
-	err = s.db.QueryRow("SELECT title FROM groups WHERE id = ?", groupID).Scan(&groupTitle)
+	err = tx.QueryRow("SELECT title FROM groups WHERE id = ?", groupID).Scan(&groupTitle)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting group title: %v", err)
 	}
 
-	// Get all group members and send notifications
-	rows, err := s.db.Query(`
+	// Get all group members
+	rows, err := tx.Query(`
         SELECT user_id FROM group_members 
         WHERE group_id = ? AND status = 'accepted' AND user_id != ?`,
 		groupID, senderID)
 	if err != nil {
-		return err
+		return fmt.Errorf("error getting group members: %v", err)
 	}
 	defer rows.Close()
 
@@ -141,21 +148,40 @@ func (s *ChatService) SendGroupMessage(groupID string, senderID string, content 
 	for rows.Next() {
 		var memberID string
 		if err := rows.Scan(&memberID); err != nil {
+			log.Printf("Error scanning member ID: %v", err)
 			continue
 		}
 
 		// Send WebSocket message if connected
 		if conn, ok := s.connections[memberID]; ok {
-			conn.WriteMessage(websocket.TextMessage, messageJSON)
+			if err := conn.WriteMessage(websocket.TextMessage, messageJSON); err != nil {
+				log.Printf("Error sending WebSocket message to %s: %v", memberID, err)
+			}
 		}
 
-		// Create notification
-		s.notificationService.CreateNotification(
+		// Create notification within the same transaction
+		notificationID := uuid.New().String()
+		_, err = tx.Exec(`
+            INSERT INTO notifications (id, user_id, type, content, reference_id, is_read, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+			notificationID,
 			memberID,
 			"group_message",
 			fmt.Sprintf("New message from %s in %s: %s", senderName, groupTitle, content),
 			message.ID,
+			false,
+			time.Now(),
 		)
+		if err != nil {
+			log.Printf("Error creating notification for member %s: %v", memberID, err)
+		} else {
+			log.Printf("Successfully created notification for member %s", memberID)
+		}
+	}
+
+	// Commit transaction
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("error committing transaction: %v", err)
 	}
 
 	return nil
