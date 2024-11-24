@@ -15,7 +15,7 @@ import {
   createGroup,
   getPendingInvites,
   respondToGroupJoinRequest,
-} from "../service/groupService";
+} from "../service/group";
 import MainLayout from "../layouts/MainLayout";
 
 const YourGroups = () => {

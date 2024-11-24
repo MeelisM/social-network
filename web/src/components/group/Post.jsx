@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Typography, Paper, Button, TextField, Modal } from "@mui/material";
-import { createGroupPost } from "../../service/groupService";
+import { createGroupPost } from "../../service/group";
 
 const Post = ({ groupId, posts, setPosts }) => {
   const [postModalOpen, setPostModalOpen] = useState(false);

@@ -6,7 +6,7 @@ import {
   getGroupPosts,
   getGroupEvents,
   getGroupMembers,
-} from "../service/groupService";
+} from "../service/group";
 import MainLayout from "../layouts/MainLayout";
 import Event from "../components/group/Event";
 import Member from "../components/group/Member"; 

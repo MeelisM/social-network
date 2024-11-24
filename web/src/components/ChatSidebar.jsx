@@ -10,16 +10,29 @@ import {
   IconButton,
   Paper,
   TextField,
+  CircularProgress,
+  Avatar,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import GroupIcon from "@mui/icons-material/Group";
+import PersonIcon from "@mui/icons-material/Person";
 import { getFriendList } from "../service/friendlist";
+import { getJoinedGroups, getOwnedGroups } from "../service/group";
+import chatService from "../service/chat";
 import webSocketService from "../service/websocket";
 import { useAuth } from "../context/AuthContext";
+
+// Utility to generate a random color
+const getRandomColor = () => {
+  const colors = ["#FF5733", "#33FF57", "#3357FF", "#FF33A8", "#A833FF", "#FFC733"];
+  return colors[Math.floor(Math.random() * colors.length)];
+};
 
 function ChatSidebar({ onClose }) {
   const { user } = useAuth();
   const [friends, setFriends] = useState([]);
+  const [groups, setGroups] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -29,40 +42,65 @@ function ChatSidebar({ onClose }) {
 
   const currentUserId = user?.user_id;
 
+  // Fetch friends and groups
   useEffect(() => {
-    console.log(`Current User ID: ${currentUserId}`);
-
-    const fetchFriends = async () => {
+    const fetchData = async () => {
+      setLoading(true);
       try {
-        const friendList = await getFriendList();
-        setFriends(friendList);
+        const [friendList, ownedGroupsResponse, joinedGroupsResponse] = await Promise.all([
+          getFriendList(),
+          getOwnedGroups(),
+          getJoinedGroups(),
+        ]);
+
+        setFriends(friendList || []);
+
+        // Owned groups
+        const ownedGroupsData = ownedGroupsResponse?.data?.owned_groups || [];
+        // Joined groups
+        const joinedGroupsData =
+          Array.isArray(joinedGroupsResponse?.data?.member_groups) &&
+          joinedGroupsResponse?.data?.member_groups.length
+            ? joinedGroupsResponse.data.member_groups
+            : [];
+
+        // Merge owned and joined groups without duplicates
+        const mergedGroups = [
+          ...ownedGroupsData,
+          ...joinedGroupsData.filter(
+            (joinedGroup) =>
+              !ownedGroupsData.some((ownedGroup) => ownedGroup.id === joinedGroup.id)
+          ),
+        ];
+
+        setGroups(mergedGroups);
       } catch (err) {
-        console.error("Error loading friends:", err.message);
-        setError("Failed to load friend list.");
+        console.error("Error loading groups:", err.message);
+        setError("Failed to load groups.");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchFriends();
+    fetchData();
   }, [currentUserId]);
 
+  // Handle incoming messages
   useEffect(() => {
     const handleIncomingMessage = (message) => {
-      if (message.type === "new_message") {
-        console.log("New message received:", message);
-        if (
-          selectedUser &&
-          (message.sender_id === selectedUser.id || message.recipient_id === selectedUser.id)
-        ) {
-          setMessages((prev) => [
-            ...prev,
-            {
-              ...message,
-              isSent: message.sender_id === currentUserId,
-            },
-          ]);
-        }
+      if (
+        selectedUser &&
+        ((selectedUser.type === "private" &&
+          (message.sender_id === selectedUser.id || message.recipient_id === selectedUser.id)) ||
+          (selectedUser.type === "group" && message.group_id === selectedUser.id))
+      ) {
+        setMessages((prev) => [
+          ...(Array.isArray(prev) ? prev : []),
+          {
+            ...message,
+            isSent: message.sender_id === currentUserId,
+          },
+        ]);
       }
     };
 
@@ -73,66 +111,71 @@ function ChatSidebar({ onClose }) {
     };
   }, [selectedUser, currentUserId]);
 
+  // Fetch message history
   useEffect(() => {
-    if (selectedUser) {
-      console.log(`Chat ID: ${selectedUser.id}`);
-      const payload = {
-        type: "get_message_history",
-        chat_id: selectedUser.id,
-      };
-      webSocketService.sendMessage(payload);
+    const fetchMessageHistory = async () => {
+      if (!selectedUser) return;
 
-      const handleMessageHistory = (message) => {
-        if (message.type === "message_history" && message.chat_id === selectedUser.id) {
-          const sentMessages = message.content.sent_messages.map((msg) => ({
+      setLoading(true);
+      try {
+        let data = [];
+        if (selectedUser.type === "private") {
+          const response = await chatService.getPrivateMessageHistory(selectedUser.id);
+          data = [
+            ...(response?.sent || []).map((msg) => ({
+              ...msg,
+              isSent: true,
+            })),
+            ...(response?.received || []).map((msg) => ({
+              ...msg,
+              isSent: false,
+            })),
+          ];
+        } else if (selectedUser.type === "group") {
+          const response = await chatService.getGroupMessageHistory(selectedUser.id);
+          data = (response || []).map((msg) => ({
             ...msg,
-            isSent: true,
+            isSent: msg.sender_id === currentUserId,
           }));
-          const receivedMessages = message.content.received_messages.map((msg) => ({
-            ...msg,
-            isSent: false,
-          }));
-
-          const allMessages = [...sentMessages, ...receivedMessages].sort(
-            (a, b) => new Date(a.created_at) - new Date(b.created_at)
-          );
-
-          setMessages(allMessages);
-          console.log("Received Messages:", allMessages);
         }
-      };
 
-      webSocketService.addMessageListener(handleMessageHistory);
+        data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(data);
+      } catch (err) {
+        console.error("Error fetching message history:", err);
+        setError("Failed to load messages.");
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      return () => {
-        webSocketService.removeMessageListener(handleMessageHistory);
-      };
-    }
-  }, [selectedUser]);
+    fetchMessageHistory();
+  }, [selectedUser, currentUserId]);
 
+  // Scroll to the latest message
   useEffect(() => {
     if (chatBoxRef.current) {
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
     }
   }, [messages]);
 
+  // Handle send message
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser) return;
 
-    const payload = {
-      type: "send_message",
-      recipient_id: selectedUser.id,
-      content: newMessage,
-    };
-
-    webSocketService.sendMessage(payload);
+    if (selectedUser.type === "private") {
+      chatService.sendPrivateMessage(selectedUser.id, newMessage);
+    } else if (selectedUser.type === "group") {
+      chatService.sendGroupMessage(selectedUser.id, newMessage);
+    }
 
     setMessages((prev) => [
-      ...prev,
+      ...(Array.isArray(prev) ? prev : []),
       {
         sender_id: currentUserId,
-        recipient_id: selectedUser.id,
+        recipient_id: selectedUser.type === "private" ? selectedUser.id : null,
+        group_id: selectedUser.type === "group" ? selectedUser.id : null,
         content: newMessage,
         created_at: new Date().toISOString(),
         isSent: true,
@@ -150,7 +193,7 @@ function ChatSidebar({ onClose }) {
         color: "white",
         padding: 2,
         position: "fixed",
-        top: 64,
+        top: 80,
         right: 0,
         bottom: 0,
         display: "flex",
@@ -167,7 +210,6 @@ function ChatSidebar({ onClose }) {
               borderBottom: "1px solid #333",
               paddingBottom: 2,
               marginBottom: 2,
-              paddingTop: 4,
             }}
           >
             <IconButton
@@ -177,7 +219,7 @@ function ChatSidebar({ onClose }) {
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
-              Chat with {selectedUser.nickname}
+              Chat with {selectedUser.nickname || selectedUser.title}
             </Typography>
           </Box>
 
@@ -191,7 +233,9 @@ function ChatSidebar({ onClose }) {
               borderRadius: 2,
             }}
           >
-            {messages.length > 0 ? (
+            {loading ? (
+              <CircularProgress sx={{ color: "#90caf9", display: "block", margin: "auto" }} />
+            ) : messages.length > 0 ? (
               messages.map((message, index) => (
                 <Box
                   key={index}
@@ -265,8 +309,7 @@ function ChatSidebar({ onClose }) {
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 2,
-              paddingTop: 4,
+              marginBottom: 3,
             }}
           >
             <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
@@ -285,44 +328,39 @@ function ChatSidebar({ onClose }) {
             </Button>
           </Box>
           <Divider sx={{ bgcolor: "#333", marginBottom: 2 }} />
-
           {loading ? (
-            <Typography>Loading friends...</Typography>
-          ) : error ? (
-            <Typography sx={{ color: "red" }}>{error}</Typography>
-          ) : friends.length === 0 ? (
-            <Typography>No friends to chat with.</Typography>
+            <CircularProgress sx={{ color: "white", display: "block", margin: "auto" }} />
           ) : (
-            <List
-              sx={{
-                flexGrow: 1,
-                overflowY: "auto",
-                padding: 0,
-              }}
-            >
-              {friends.map((friend) => (
-                <ListItem
-                  button
-                  key={friend.id}
-                  sx={{
-                    display: "flex",
-                    alignItems: "center",
-                    padding: 1,
-                    borderRadius: 1,
-                    "&:hover": { bgcolor: "#333" },
-                  }}
-                  onClick={() => setSelectedUser(friend)}
-                >
-                  <ListItemText
-                    primary={friend.nickname || "Unknown"}
-                    primaryTypographyProps={{
-                      variant: "body1",
-                      color: "white",
+            <>
+              <List sx={{ flexGrow: 1, overflowY: "auto", padding: 0 }}>
+                {[...friends, ...groups].map((item) => (
+                  <ListItem
+                    button
+                    key={item.id}
+                    onClick={() =>
+                      setSelectedUser({ ...item, type: item.nickname ? "private" : "group" })
+                    }
+                    sx={{
+                      padding: 1,
+                      "&:hover": { bgcolor: "#333" },
                     }}
-                  />
-                </ListItem>
-              ))}
-            </List>
+                  >
+                    <Avatar
+                      sx={{
+                        bgcolor: getRandomColor(),
+                        marginRight: 2,
+                      }}
+                    >
+                      {item.nickname ? <PersonIcon /> : <GroupIcon />}
+                    </Avatar>
+                    <ListItemText
+                      primary={item.nickname || item.title}
+                      primaryTypographyProps={{ variant: "body1", color: "white" }}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </>
           )}
         </Box>
       )}

@@ -12,7 +12,7 @@ import {
   ListItem,
   Box,
 } from "@mui/material";
-import { createGroupEvent, respondToEvent, getEventResponses } from "../../service/groupService";
+import { createGroupEvent, respondToEvent, getEventResponses } from "../../service/group";
 import { useAuth } from "../../context/AuthContext";
 
 const Event = ({ groupId, events, setEvents }) => {
