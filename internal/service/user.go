@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"errors"
 	"social-network/internal/model"
+	"time"
 )
 
 type UserService struct {
@@ -55,4 +56,33 @@ func (s *UserService) GetUserByUUID(uuid string) (*model.User, error) {
 	}
 
 	return &user, nil
+}
+
+func (s *UserService) UpdateProfileVisibility(userID string, isPublic bool) error {
+	_, err := s.db.Exec(`
+        UPDATE users 
+        SET is_public = ?, 
+            updated_at = ?
+        WHERE id = ?`,
+		isPublic,
+		time.Now(),
+		userID,
+	)
+	return err
+}
+
+func (s *UserService) GetProfileVisibility(userID string) (bool, error) {
+	var isPublic bool
+	err := s.db.QueryRow(`
+        SELECT is_public 
+        FROM users 
+        WHERE id = ?`,
+		userID,
+	).Scan(&isPublic)
+
+	if err != nil {
+		return false, err
+	}
+
+	return isPublic, nil
 }
