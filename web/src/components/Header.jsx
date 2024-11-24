@@ -9,7 +9,14 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import AddIcon from "@mui/icons-material/Add";
 import { useAxios } from "../utils/axiosInstance";
 
-function Header({ onToggleSidebar, onToggleChat, onToggleNotification, hasUnreadNotifications }) {
+function Header({
+  onToggleSidebar,
+  onToggleChat,
+  onToggleNotification,
+  hasUnreadNotifications,
+  hasUnreadMessages,
+  onLogout,
+}) {
   const { user, setUser } = useAuth();
   const axios = useAxios();
   const navigate = useNavigate();
@@ -22,6 +29,9 @@ function Header({ onToggleSidebar, onToggleChat, onToggleNotification, hasUnread
     } finally {
       setUser(null);
       localStorage.removeItem("user");
+      if (onLogout) {
+        onLogout();
+      }
       navigate("/login");
     }
   };
@@ -73,7 +83,13 @@ function Header({ onToggleSidebar, onToggleChat, onToggleNotification, hasUnread
               </Badge>
             </IconButton>
             <IconButton onClick={onToggleChat}>
-              <ChatIcon fontSize="large" color="primary" />
+              <Badge
+                color="error"
+                variant="dot"
+                invisible={!hasUnreadMessages}
+              >
+                <ChatIcon fontSize="large" color="primary" />
+              </Badge>
             </IconButton>
             <IconButton
               onClick={() => navigate("/posts/new")} // Navigate to new post page

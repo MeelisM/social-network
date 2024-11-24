@@ -4,7 +4,9 @@ import ChatSidebar from '../components/ChatSidebar';
 import NotificationSidebar from '../components/NotificationSidebar';
 import Header from '../components/Header';
 import Footer from '../components/Footer';
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import webSocketService from '../service/websocket';
+import { useAuth } from '../context/AuthContext';
 
 const drawerWidth = 240;
 
@@ -18,18 +20,105 @@ function MainLayout({ children }) {
   const [isSidebarOpen, setSidebarOpen] = useState(true);
   const [isChatSidebarOpen, setChatSidebarOpen] = useState(false);
   const [isNotificationSidebarOpen, setNotificationSidebarOpen] = useState(false);
-  const [unreadNotifications, setUnreadNotifications] = useState(true); // State for unread notifications
+  const [hasUnreadMessages, setHasUnreadMessages] = useState(false);
+  const [hasUnreadNotifications, setHasUnreadNotifications] = useState(false);
+  const [unreadCounts, setUnreadCounts] = useState({});
+  const { user } = useAuth();
+
+  // Listener for incoming messages
+  const handleIncomingMessage = useCallback(
+    (message) => {
+      if (!user) return;
+
+      if (
+        message.type === "new_private_message" &&
+        message.content.recipient_id === user.user_id
+      ) {
+        const chatId = message.content.sender_id;
+
+        setUnreadCounts((prevCounts) => {
+          const count = prevCounts[chatId] || 0;
+          const newCounts = { ...prevCounts, [chatId]: count + 1 };
+          const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
+          setHasUnreadMessages(totalUnread > 0);
+          return newCounts;
+        });
+      } else if (message.type === "unread_messages") {
+        // Handle the initial unread messages received from the server
+        const { has_unread, senders } = message.content;
+
+        // Ensure senders is an array
+        const senderList = Array.isArray(senders) ? senders : [];
+
+        setUnreadCounts(() => {
+          const newCounts = {};
+          senderList.forEach((senderId) => {
+            newCounts[senderId] = 1; // Assuming at least one unread message
+          });
+          const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
+          setHasUnreadMessages(totalUnread > 0);
+          return newCounts;
+        });
+      }
+      // Handle other message types if needed
+    },
+    [user]
+  );
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Connect to WebSocket if not already connected
+    if (!webSocketService.isConnected && !webSocketService.isConnecting) {
+      const wsUrl = `${process.env.REACT_APP_WEBSOCKET_URL}/ws?token=${localStorage.getItem('token')}`;
+      webSocketService.connect(wsUrl);
+    }
+
+    webSocketService.addMessageListener(handleIncomingMessage);
+
+    // Request unread messages when the component mounts or when the user logs in
+    webSocketService.getUnreadMessages();
+
+    return () => {
+      webSocketService.removeMessageListener(handleIncomingMessage);
+    };
+  }, [user, handleIncomingMessage]);
 
   const handleLogout = () => {
     console.log('Logout clicked');
-    // Login logic placeholder
+    // Logout logic placeholder
   };
 
-  const handleNotificationsOpen = () => {
+  const handleToggleChat = () => {
+    setChatSidebarOpen(!isChatSidebarOpen);
+    setNotificationSidebarOpen(false); // Close notifications if chat is open
+    // Do not reset hasUnreadMessages here
+  };
+
+  const handleToggleNotification = () => {
     setNotificationSidebarOpen(!isNotificationSidebarOpen);
     setChatSidebarOpen(false); // Close chat if notifications are open
-    setUnreadNotifications(false); // Mark notifications as read
+    // Reset unread notifications when notification sidebar is opened
+    if (!isNotificationSidebarOpen) {
+      setHasUnreadNotifications(false);
+    }
   };
+
+  // Reset unread counts when a chat is opened
+  const handleChatSelect = useCallback((chatId) => {
+    setUnreadCounts((prevCounts) => {
+      const newCounts = { ...prevCounts };
+      delete newCounts[chatId];
+      // Update hasUnreadMessages
+      const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
+      setHasUnreadMessages(totalUnread > 0);
+      return newCounts;
+    });
+
+    // Mark messages as read for the selected chat
+    const selectedUser = { id: chatId, type: 'private' };
+    webSocketService.markMessagesAsRead(selectedUser);
+  }, []);
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -38,13 +127,11 @@ function MainLayout({ children }) {
       {/* Header */}
       <Header
         onToggleSidebar={() => setSidebarOpen(!isSidebarOpen)}
-        onToggleChat={() => {
-          setChatSidebarOpen(!isChatSidebarOpen);
-          setNotificationSidebarOpen(false); // Close notifications if chat is open
-        }}
-        onToggleNotification={handleNotificationsOpen} // Handle notification toggle
+        onToggleChat={handleToggleChat}
+        onToggleNotification={handleToggleNotification}
         onLogout={handleLogout}
-        hasUnreadNotifications={unreadNotifications} // Pass unread state to Header
+        hasUnreadMessages={hasUnreadMessages}
+        hasUnreadNotifications={hasUnreadNotifications}
       />
 
       {/* Main Content Area with Sidebars */}
@@ -103,7 +190,11 @@ function MainLayout({ children }) {
               bottom: 0,
             }}
           >
-            <ChatSidebar onClose={() => setChatSidebarOpen(false)} />
+            <ChatSidebar
+              onClose={() => setChatSidebarOpen(false)}
+              onChatSelect={handleChatSelect}
+              unreadCounts={unreadCounts}
+            />
           </Box>
         )}
 
@@ -121,7 +212,10 @@ function MainLayout({ children }) {
               bottom: 0,
             }}
           >
-            <NotificationSidebar onClose={() => setNotificationSidebarOpen(false)} />
+            <NotificationSidebar
+              onClose={() => setNotificationSidebarOpen(false)}
+              onHasUnreadNotificationsChange={(hasUnread) => setHasUnreadNotifications(hasUnread)}
+            />
           </Box>
         )}
       </Box>

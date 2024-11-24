@@ -287,3 +287,30 @@ func (s *ChatService) RegisterConnection(userID string, conn *websocket.Conn) {
 func (s *ChatService) RemoveConnection(userID string) {
 	delete(s.connections, userID)
 }
+
+func (s *ChatService) GetUnreadMessageSenders(userID string) ([]string, error) {
+	rows, err := s.db.Query(`
+        SELECT DISTINCT sender_id
+        FROM messages
+        WHERE recipient_id = ? AND is_read = FALSE
+    `, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var senderIDs []string
+	for rows.Next() {
+		var senderID string
+		if err := rows.Scan(&senderID); err != nil {
+			return nil, err
+		}
+		senderIDs = append(senderIDs, senderID)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return senderIDs, nil
+}
