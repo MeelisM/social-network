@@ -3,6 +3,9 @@ package service
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"log"
+	"social-network/internal/notification"
 	"time"
 
 	"github.com/google/uuid"
@@ -10,8 +13,9 @@ import (
 )
 
 type ChatService struct {
-	db          *sql.DB
-	connections map[string]*websocket.Conn
+	db                  *sql.DB
+	connections         map[string]*websocket.Conn
+	notificationService notification.Service
 }
 
 type Message struct {
@@ -25,10 +29,11 @@ type Message struct {
 	Type        string    `json:"type"` // "private" or "group"
 }
 
-func NewChatService(db *sql.DB) *ChatService {
+func NewChatService(db *sql.DB, notificationService notification.Service) *ChatService {
 	return &ChatService{
-		db:          db,
-		connections: make(map[string]*websocket.Conn),
+		db:                  db,
+		connections:         make(map[string]*websocket.Conn),
+		notificationService: notificationService,
 	}
 }
 
@@ -58,6 +63,21 @@ func (s *ChatService) SendPrivateMessage(senderID, recipientID, content string) 
 	if conn, ok := s.connections[recipientID]; ok {
 		messageJSON, _ := json.Marshal(message)
 		conn.WriteMessage(websocket.TextMessage, messageJSON)
+	}
+
+	// Create notification for recipient
+	var senderName string
+	err = s.db.QueryRow("SELECT first_name FROM users WHERE id = ?", senderID).Scan(&senderName)
+	if err == nil {
+		err = s.notificationService.CreateNotification(
+			recipientID,
+			"private_message",
+			fmt.Sprintf("New message from %s: %s", senderName, content),
+			message.ID,
+		)
+		if err != nil {
+			log.Printf("Failed to create notification: %v", err)
+		}
 	}
 
 	return nil
@@ -94,26 +114,48 @@ func (s *ChatService) SendGroupMessage(groupID string, senderID string, content 
 		return err
 	}
 
-	// Get all group members
+	// Get group info and sender name
+	var groupTitle, senderName string
+	err = s.db.QueryRow("SELECT first_name FROM users WHERE id = ?", senderID).Scan(&senderName)
+	if err != nil {
+		return err
+	}
+
+	err = s.db.QueryRow("SELECT title FROM groups WHERE id = ?", groupID).Scan(&groupTitle)
+	if err != nil {
+		return err
+	}
+
+	// Get all group members and send notifications
 	rows, err := s.db.Query(`
         SELECT user_id FROM group_members 
-        WHERE group_id = ? AND status = 'accepted'`,
-		groupID)
+        WHERE group_id = ? AND status = 'accepted' AND user_id != ?`,
+		groupID, senderID)
 	if err != nil {
 		return err
 	}
 	defer rows.Close()
 
-	// Send to all connected members
+	// Send to all connected members and create notifications
 	messageJSON, _ := json.Marshal(message)
 	for rows.Next() {
 		var memberID string
 		if err := rows.Scan(&memberID); err != nil {
 			continue
 		}
+
+		// Send WebSocket message if connected
 		if conn, ok := s.connections[memberID]; ok {
 			conn.WriteMessage(websocket.TextMessage, messageJSON)
 		}
+
+		// Create notification
+		s.notificationService.CreateNotification(
+			memberID,
+			"group_message",
+			fmt.Sprintf("New message from %s in %s: %s", senderName, groupTitle, content),
+			message.ID,
+		)
 	}
 
 	return nil
