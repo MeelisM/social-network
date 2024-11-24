@@ -1,23 +1,32 @@
+// webSocketService.js
+
 class WebSocketService {
   constructor() {
     this.socket = null;
     this.listeners = [];
     this.isConnected = false;
+    this.isConnecting = false;
     this.url = null; // Store the WebSocket URL
+    this.reconnectAttempts = 0;
+    this.maxReconnectAttempts = 5;
   }
 
   connect(url) {
-    if (this.isConnected) {
-      console.warn("WebSocket is already connected");
+    if (this.isConnected || this.isConnecting) {
+      console.warn("WebSocket is already connected or connecting");
       return;
     }
 
     this.url = url; // Save the WebSocket URL
+    this.isConnecting = true;
+
     this.socket = new WebSocket(url);
 
     this.socket.onopen = () => {
       console.log("WebSocket connected to:", this.url);
       this.isConnected = true;
+      this.isConnecting = false;
+      this.reconnectAttempts = 0;
     };
 
     this.socket.onmessage = (event) => {
@@ -37,16 +46,29 @@ class WebSocketService {
     this.socket.onclose = (event) => {
       console.log("WebSocket disconnected:", event.reason || "No reason provided");
       this.isConnected = false;
+      this.isConnecting = false;
+      this.socket = null;
 
-      // Optional: Attempt reconnection after a delay
-      setTimeout(() => {
-        console.log("Attempting WebSocket reconnection...");
-        this.reconnect();
-      }, 5000); // Reconnect after 5 seconds
+      // Attempt reconnection if maximum attempts not reached
+      if (this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts += 1;
+        const delay = Math.min(10000, this.reconnectAttempts * 2000); // Exponential backoff
+        console.log(`Attempting WebSocket reconnection in ${delay / 1000} seconds...`);
+        setTimeout(() => {
+          this.reconnect();
+        }, delay);
+      } else {
+        console.error("Maximum WebSocket reconnection attempts reached.");
+      }
     };
   }
 
   reconnect() {
+    if (this.isConnected || this.isConnecting) {
+      console.warn("WebSocket is already connected or connecting");
+      return;
+    }
+
     if (this.url) {
       this.connect(this.url);
     } else {
@@ -60,6 +82,7 @@ class WebSocketService {
       this.socket.close();
       this.socket = null;
       this.isConnected = false;
+      this.isConnecting = false;
     }
   }
 
@@ -80,6 +103,88 @@ class WebSocketService {
   removeMessageListener(callback) {
     this.listeners = this.listeners.filter((listener) => listener !== callback);
     console.log("Removed WebSocket message listener. Total listeners:", this.listeners.length);
+  }
+
+  // --- WebSocket Message Wrappers ---
+
+  getNotifications() {
+    this.sendMessage({ type: "get_notifications" });
+  }
+
+  markNotificationAsRead(notificationId) {
+    this.sendMessage({
+      type: "mark_read",
+      notification_id: notificationId,
+    });
+  }
+
+  sendMessageToRecipient(selectedUser, content) {
+    if (!selectedUser || !selectedUser.type) {
+      console.error("Invalid selectedUser:", selectedUser);
+      return;
+    }
+
+    if (selectedUser.type === "private") {
+      this.sendMessage({
+        type: "send_private_message",
+        recipient_id: selectedUser.id,
+        content,
+      });
+    } else if (selectedUser.type === "group") {
+      this.sendMessage({
+        type: "send_group_message",
+        group_id: selectedUser.id,
+        content,
+      });
+    } else {
+      console.error("Unknown chat type:", selectedUser.type);
+    }
+  }
+
+  getMessageHistory(selectedUser) {
+    if (!selectedUser || !selectedUser.type) {
+      console.error("Invalid selectedUser:", selectedUser);
+      return;
+    }
+
+    if (selectedUser.type === "private") {
+      this.sendMessage({
+        type: "get_private_history",
+        other_user_id: selectedUser.id,
+      });
+    } else if (selectedUser.type === "group") {
+      this.sendMessage({
+        type: "get_group_history",
+        group_id: selectedUser.id,
+      });
+    } else {
+      console.error("Unknown chat type:", selectedUser.type);
+    }
+  }
+
+  markMessagesAsRead(selectedUser) {
+    if (!selectedUser || !selectedUser.type) {
+      console.error("Invalid selectedUser:", selectedUser);
+      return;
+    }
+
+    if (selectedUser.type === "private") {
+      this.sendMessage({
+        type: "mark_messages_read",
+        sender_id: selectedUser.id,
+      });
+    } else if (selectedUser.type === "group") {
+      this.sendMessage({
+        type: "mark_messages_read",
+        group_id: selectedUser.id,
+      });
+    } else {
+      console.error("Unknown chat type:", selectedUser.type);
+    }
+  }
+
+  getUnreadMessages() {
+    this.sendMessage({ type: "get_unread_messages" });
   }
 }
 

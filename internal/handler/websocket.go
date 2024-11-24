@@ -71,6 +71,8 @@ func (h *WebSocketHandler) HandleConnections(w http.ResponseWriter, r *http.Requ
 			h.handleGetGroupHistory(conn, userID, msg)
 		case "mark_messages_read":
 			h.handleMarkMessagesRead(conn, userID, msg)
+		case "get_unread_messages":
+			h.handleGetUnreadMessages(conn, userID)
 		default:
 			log.Printf("Unknown message type: %v", msg["type"])
 		}
@@ -191,5 +193,30 @@ func (h *WebSocketHandler) handleMarkMessagesRead(conn *websocket.Conn, userID s
 		"type":    "messages_marked_read",
 		"success": true,
 	}
+	conn.WriteJSON(response)
+}
+
+func (h *WebSocketHandler) handleGetUnreadMessages(conn *websocket.Conn, userID string) {
+	senderIDs, err := h.chatService.GetUnreadMessageSenders(userID)
+	if err != nil {
+		log.Printf("Error getting unread message senders: %v", err)
+		response := map[string]interface{}{
+			"type":    "error",
+			"message": "Failed to get unread messages",
+		}
+		conn.WriteJSON(response)
+		return
+	}
+
+	hasUnread := len(senderIDs) > 0
+
+	response := map[string]interface{}{
+		"type": "unread_messages",
+		"content": map[string]interface{}{
+			"has_unread": hasUnread,
+			"senders":    senderIDs,
+		},
+	}
+
 	conn.WriteJSON(response)
 }

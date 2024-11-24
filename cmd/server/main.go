@@ -151,6 +151,7 @@ func main() {
 	router.HandleFunc("/chat/group", authMiddleware.RequireAuth(chatHandler.GetGroupMessageHistory))
 	router.HandleFunc("/chat/private/send", authMiddleware.RequireAuth(chatHandler.SendPrivateMessage))
 	router.HandleFunc("/chat/group/send", authMiddleware.RequireAuth(chatHandler.SendGroupMessage))
+	router.HandleFunc("/chat/unread", authMiddleware.RequireAuth(chatHandler.GetUnreadMessageSenders))
 	router.HandleFunc("/chat/mark-read", authMiddleware.RequireAuth(chatHandler.MarkMessagesRead))
 
 	// User routes

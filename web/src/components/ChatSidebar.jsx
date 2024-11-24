@@ -10,8 +10,8 @@ import {
   IconButton,
   Paper,
   TextField,
-  CircularProgress,
   Avatar,
+  Badge,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
@@ -19,138 +19,133 @@ import GroupIcon from "@mui/icons-material/Group";
 import PersonIcon from "@mui/icons-material/Person";
 import { getFriendList } from "../service/friendlist";
 import { getJoinedGroups, getOwnedGroups } from "../service/group";
-import chatService from "../service/chat";
 import webSocketService from "../service/websocket";
 import { useAuth } from "../context/AuthContext";
 
-// Utility to generate a random color
-const getRandomColor = () => {
-  const colors = ["#FF5733", "#33FF57", "#3357FF", "#FF33A8", "#A833FF", "#FFC733"];
-  return colors[Math.floor(Math.random() * colors.length)];
-};
-
-function ChatSidebar({ onClose }) {
+function ChatSidebar({ onClose, onChatSelect, unreadCounts }) {
   const { user } = useAuth();
   const [friends, setFriends] = useState([]);
   const [groups, setGroups] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const selectedUserRef = useRef(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
   const chatBoxRef = useRef(null);
-
   const currentUserId = user?.user_id;
+
+  // Update selectedUserRef whenever selectedUser changes
+  useEffect(() => {
+    selectedUserRef.current = selectedUser;
+  }, [selectedUser]);
 
   // Fetch friends and groups
   useEffect(() => {
     const fetchData = async () => {
-      setLoading(true);
       try {
         const [friendList, ownedGroupsResponse, joinedGroupsResponse] = await Promise.all([
           getFriendList(),
           getOwnedGroups(),
           getJoinedGroups(),
         ]);
-
         setFriends(friendList || []);
 
-        // Owned groups
+        // Merge owned and joined groups
         const ownedGroupsData = ownedGroupsResponse?.data?.owned_groups || [];
-        // Joined groups
-        const joinedGroupsData =
-          Array.isArray(joinedGroupsResponse?.data?.member_groups) &&
-          joinedGroupsResponse?.data?.member_groups.length
-            ? joinedGroupsResponse.data.member_groups
-            : [];
-
-        // Merge owned and joined groups without duplicates
+        const joinedGroupsData = joinedGroupsResponse?.data?.member_groups || [];
         const mergedGroups = [
           ...ownedGroupsData,
           ...joinedGroupsData.filter(
-            (joinedGroup) =>
-              !ownedGroupsData.some((ownedGroup) => ownedGroup.id === joinedGroup.id)
+            (joinedGroup) => !ownedGroupsData.some((ownedGroup) => ownedGroup.id === joinedGroup.id)
           ),
         ];
-
         setGroups(mergedGroups);
       } catch (err) {
         console.error("Error loading groups:", err.message);
-        setError("Failed to load groups.");
-      } finally {
-        setLoading(false);
       }
     };
-
     fetchData();
   }, [currentUserId]);
 
-  // Handle incoming messages
+  // Listener for messages
   useEffect(() => {
-    const handleIncomingMessage = (message) => {
-      if (
-        selectedUser &&
-        ((selectedUser.type === "private" &&
-          (message.sender_id === selectedUser.id || message.recipient_id === selectedUser.id)) ||
-          (selectedUser.type === "group" && message.group_id === selectedUser.id))
-      ) {
-        setMessages((prev) => [
-          ...(Array.isArray(prev) ? prev : []),
-          {
-            ...message,
-            isSent: message.sender_id === currentUserId,
-          },
-        ]);
-      }
-    };
+    const messageListener = (message) => {
+      const selectedUser = selectedUserRef.current;
 
-    webSocketService.addMessageListener(handleIncomingMessage);
-
-    return () => {
-      webSocketService.removeMessageListener(handleIncomingMessage);
-    };
-  }, [selectedUser, currentUserId]);
-
-  // Fetch message history
-  useEffect(() => {
-    const fetchMessageHistory = async () => {
       if (!selectedUser) return;
 
-      setLoading(true);
-      try {
-        let data = [];
-        if (selectedUser.type === "private") {
-          const response = await chatService.getPrivateMessageHistory(selectedUser.id);
-          data = [
-            ...(response?.sent || []).map((msg) => ({
-              ...msg,
-              isSent: true,
-            })),
-            ...(response?.received || []).map((msg) => ({
-              ...msg,
-              isSent: false,
-            })),
-          ];
-        } else if (selectedUser.type === "group") {
-          const response = await chatService.getGroupMessageHistory(selectedUser.id);
-          data = (response || []).map((msg) => ({
-            ...msg,
-            isSent: msg.sender_id === currentUserId,
-          }));
-        }
+      if (message.type === "private_message_history" || message.type === "group_message_history") {
+        // Handle message history
+        const messagesArray =
+          message.type === "private_message_history"
+            ? [...(message.content.sent || []), ...(message.content.received || [])]
+            : message.content || [];
+
+        const data = messagesArray.map((msg) => ({
+          ...msg,
+          isSent: msg.sender_id === currentUserId,
+        }));
 
         data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+        // Set messages
         setMessages(data);
-      } catch (err) {
-        console.error("Error fetching message history:", err);
-        setError("Failed to load messages.");
-      } finally {
-        setLoading(false);
+
+        // Mark messages as read
+        webSocketService.markMessagesAsRead(selectedUser);
+      } else if (message.type === "new_private_message" || message.type === "new_group_message") {
+        // Handle new messages
+        let isRelevantMessage = false;
+        let newMsg = null;
+
+        if (selectedUser.type === "private" && message.type === "new_private_message") {
+          const { sender_id, recipient_id } = message.content;
+          isRelevantMessage =
+            (sender_id === selectedUser.id && recipient_id === currentUserId) ||
+            (sender_id === currentUserId && recipient_id === selectedUser.id);
+          if (isRelevantMessage) {
+            newMsg = {
+              ...message.content,
+              isSent: sender_id === currentUserId,
+            };
+          }
+        } else if (selectedUser.type === "group" && message.type === "new_group_message") {
+          isRelevantMessage = message.content.group_id === selectedUser.id;
+          if (isRelevantMessage) {
+            newMsg = {
+              ...message.content,
+              isSent: message.content.sender_id === currentUserId,
+            };
+          }
+        }
+
+        if (isRelevantMessage) {
+          setMessages((prev) => [...prev, newMsg]);
+        }
       }
     };
 
-    fetchMessageHistory();
-  }, [selectedUser, currentUserId]);
+    webSocketService.addMessageListener(messageListener);
+
+    return () => {
+      webSocketService.removeMessageListener(messageListener);
+    };
+  }, [currentUserId]);
+
+  // Request message history when selectedUser changes
+  useEffect(() => {
+    if (!selectedUser) return;
+
+    // Clear current messages
+    setMessages([]);
+
+    // Request message history
+    webSocketService.getMessageHistory(selectedUser);
+
+    // Notify MainLayout to reset unread counts
+    if (onChatSelect) {
+      onChatSelect(selectedUser.id);
+    }
+  }, [selectedUser, onChatSelect]);
 
   // Scroll to the latest message
   useEffect(() => {
@@ -159,30 +154,33 @@ function ChatSidebar({ onClose }) {
     }
   }, [messages]);
 
-  // Handle send message
+  // Handle send message via WebSocket
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser) return;
 
-    if (selectedUser.type === "private") {
-      chatService.sendPrivateMessage(selectedUser.id, newMessage);
-    } else if (selectedUser.type === "group") {
-      chatService.sendGroupMessage(selectedUser.id, newMessage);
-    }
+    webSocketService.sendMessageToRecipient(selectedUser, newMessage);
 
-    setMessages((prev) => [
-      ...(Array.isArray(prev) ? prev : []),
-      {
-        sender_id: currentUserId,
-        recipient_id: selectedUser.type === "private" ? selectedUser.id : null,
-        group_id: selectedUser.type === "group" ? selectedUser.id : null,
-        content: newMessage,
-        created_at: new Date().toISOString(),
-        isSent: true,
-      },
-    ]);
+    const newMsg = {
+      sender_id: currentUserId,
+      recipient_id: selectedUser.id,
+      content: newMessage,
+      created_at: new Date().toISOString(),
+      isSent: true,
+    };
+
+    setMessages((prev) => [...prev, newMsg]);
 
     setNewMessage("");
+  };
+
+  // Handle selecting a chat
+  const handleChatItemClick = (item) => {
+    setSelectedUser(item);
+    // Notify MainLayout that this chat has been opened
+    if (onChatSelect) {
+      onChatSelect(item.id);
+    }
   };
 
   return (
@@ -219,10 +217,9 @@ function ChatSidebar({ onClose }) {
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
-              Chat with {selectedUser.nickname || selectedUser.title}
+              Chat with {selectedUser.nickname || selectedUser.title || selectedUser.name}
             </Typography>
           </Box>
-
           <Box
             ref={chatBoxRef}
             sx={{
@@ -233,9 +230,7 @@ function ChatSidebar({ onClose }) {
               borderRadius: 2,
             }}
           >
-            {loading ? (
-              <CircularProgress sx={{ color: "#90caf9", display: "block", margin: "auto" }} />
-            ) : messages.length > 0 ? (
+            {messages.length > 0 ? (
               messages.map((message, index) => (
                 <Box
                   key={index}
@@ -264,7 +259,6 @@ function ChatSidebar({ onClose }) {
               </Typography>
             )}
           </Box>
-
           <Box
             component="form"
             sx={{
@@ -328,40 +322,90 @@ function ChatSidebar({ onClose }) {
             </Button>
           </Box>
           <Divider sx={{ bgcolor: "#333", marginBottom: 2 }} />
-          {loading ? (
-            <CircularProgress sx={{ color: "white", display: "block", margin: "auto" }} />
-          ) : (
-            <>
-              <List sx={{ flexGrow: 1, overflowY: "auto", padding: 0 }}>
-                {[...friends, ...groups].map((item) => (
-                  <ListItem
-                    button
-                    key={item.id}
-                    onClick={() =>
-                      setSelectedUser({ ...item, type: item.nickname ? "private" : "group" })
-                    }
+          <Typography variant="subtitle1" sx={{ color: "#90caf9", marginBottom: 1 }}>
+            Friends
+          </Typography>
+          <List sx={{ flexGrow: 1, overflowY: "auto", padding: 0 }}>
+            {friends.map((item) => (
+              <ListItem
+                button
+                key={item.id}
+                onClick={() => handleChatItemClick({ ...item, type: "private" })}
+                sx={{
+                  padding: 1,
+                  "&:hover": { bgcolor: "#333" },
+                }}
+              >
+                <Badge
+                  color="error"
+                  variant="dot"
+                  invisible={!unreadCounts[item.id]}
+                  overlap="circular"
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "left",
+                  }}
+                >
+                  <Avatar
                     sx={{
-                      padding: 1,
-                      "&:hover": { bgcolor: "#333" },
+                      bgcolor: "#90caf9",
+                      marginRight: 2,
                     }}
                   >
-                    <Avatar
-                      sx={{
-                        bgcolor: getRandomColor(),
-                        marginRight: 2,
-                      }}
-                    >
-                      {item.nickname ? <PersonIcon /> : <GroupIcon />}
-                    </Avatar>
-                    <ListItemText
-                      primary={item.nickname || item.title}
-                      primaryTypographyProps={{ variant: "body1", color: "white" }}
-                    />
-                  </ListItem>
-                ))}
-              </List>
-            </>
-          )}
+                    <PersonIcon />
+                  </Avatar>
+                </Badge>
+                <ListItemText
+                  primary={item.nickname || item.name || "Unknown Friend"}
+                  primaryTypographyProps={{ variant: "body1", color: "white" }}
+                />
+              </ListItem>
+            ))}
+          </List>
+          {/* Groups Section */}
+          <Typography
+            variant="subtitle1"
+            sx={{ color: "#90caf9", marginTop: 2, marginBottom: 1 }}
+          >
+            Groups
+          </Typography>
+          <List sx={{ flexGrow: 1, overflowY: "auto", padding: 0 }}>
+            {groups.map((item) => (
+              <ListItem
+                button
+                key={item.id}
+                onClick={() => handleChatItemClick({ ...item, type: "group" })}
+                sx={{
+                  padding: 1,
+                  "&:hover": { bgcolor: "#333" },
+                }}
+              >
+                <Badge
+                  color="error"
+                  variant="dot"
+                  invisible={!unreadCounts[item.id]}
+                  overlap="circular"
+                  anchorOrigin={{
+                    vertical: "top",
+                    horizontal: "left",
+                  }}
+                >
+                  <Avatar
+                    sx={{
+                      bgcolor: "#90caf9",
+                      marginRight: 2,
+                    }}
+                  >
+                    <GroupIcon />
+                  </Avatar>
+                </Badge>
+                <ListItemText
+                  primary={item.title || item.name || "Unknown Group"}
+                  primaryTypographyProps={{ variant: "body1", color: "white" }}
+                />
+              </ListItem>
+            ))}
+          </List>
         </Box>
       )}
     </Box>
