@@ -13,7 +13,7 @@ import {
   ListItemText,
   CircularProgress,
 } from "@mui/material";
-import { getOwnedGroups, inviteToGroup } from "../service/groupService";
+import { getOwnedGroups, inviteToGroup } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
 import { useAuth } from "../context/AuthContext";
 

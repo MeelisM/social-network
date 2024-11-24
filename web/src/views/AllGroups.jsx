@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, Paper, Grid } from "@mui/material";
 import { Link } from "react-router-dom";
-import { getAllGroups } from "../service/groupService";
+import { getAllGroups } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
 
 const AllGroups = () => {

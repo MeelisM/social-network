@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Box, Typography, Paper, Grid } from "@mui/material";
 import { Link } from "react-router-dom";
-import { getJoinedGroups } from "../service/groupService";
+import { getJoinedGroups } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
 
 const JoinedGroups = () => {

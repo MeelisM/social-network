@@ -1,52 +1,59 @@
-import webSocketService from './websocket';
+import axios from "axios";
+import webSocketService from "./websocket";
 
 const chatService = {
-  sendMessage: (recipientId, content) => {
-    if (!webSocketService.isConnected) {
-      console.error('WebSocket is not connected.');
-      return;
-    }
-
-    try {
-      const message = {
-        type: 'send_message', // Assuming this is the message type expected by the backend
-        recipient_id: recipientId,
-        content: content,
-      };
-
-      console.log('Sending message:', message);
-      webSocketService.sendMessage(message);
-    } catch (error) {
-      console.error('Error sending message:', error);
-    }
+  sendPrivateMessage: (recipientId, content) => {
+    axios
+      .post(
+        "http://localhost:8080/chat/private/send",
+        { recipient_id: recipientId, content },
+        { withCredentials: true }
+      )
+      .catch((err) => console.error("Error sending private message:", err));
   },
 
-  getMessageHistory: async (userId) => {
+  getPrivateMessageHistory: async (peerId) => {
     try {
-      const response = await fetch(`/messages?peer_id=${userId}`, {
-        credentials: 'include',
+      const response = await axios.get(`http://localhost:8080/chat/private?peer_id=${peerId}`, {
+        withCredentials: true,
       });
-      if (!response.ok) {
-        throw new Error(`Failed to fetch message history: ${response.statusText}`);
-      }
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Error fetching message history:', error);
+      return response.data;
+    } catch (err) {
+      console.error("Error fetching private message history:", err);
       return [];
     }
   },
 
-  addMessageListener: (callback) => {
-    webSocketService.addMessageListener((message) => {
-      if (message.type === 'new_message') {
-        callback(message);
-      }
-    });
+  sendGroupMessage: (groupId, content) => {
+    axios
+      .post(
+        "http://localhost:8080/chat/group/send",
+        { group_id: groupId, content },
+        { withCredentials: true }
+      )
+      .catch((err) => console.error("Error sending group message:", err));
   },
 
-  removeMessageListener: (callback) => {
-    webSocketService.removeMessageListener(callback);
+  getGroupMessageHistory: async (groupId) => {
+    try {
+      const response = await axios.get(`http://localhost:8080/chat/group?group_id=${groupId}`, {
+        withCredentials: true,
+      });
+      return response.data;
+    } catch (err) {
+      console.error("Error fetching group message history:", err);
+      return [];
+    }
+  },
+
+  markMessagesAsRead: (senderId) => {
+    axios
+      .post(
+        "http://localhost:8080/chat/mark-read",
+        { sender_id: senderId },
+        { withCredentials: true }
+      )
+      .catch((err) => console.error("Error marking messages as read:", err));
   },
 };
 
