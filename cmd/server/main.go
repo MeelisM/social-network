@@ -55,7 +55,7 @@ func main() {
 	postService := service.NewPostService(db.DB)
 	userService := service.NewUserService(db.DB)
 	notificationService := service.NewNotificationService(db.DB)
-	chatService := service.NewChatService(db.DB)
+	chatService := service.NewChatService(db.DB, notificationService)
 	followerService := service.NewFollowerService(db.DB, notificationService)
 	groupService := service.NewGroupService(db.DB, notificationService)
 	webSocketHandler := handler.NewWebSocketHandler(notificationService, chatService)
