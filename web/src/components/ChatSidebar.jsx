@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -10,113 +10,161 @@ import {
   IconButton,
   Paper,
   TextField,
-} from '@mui/material';
-import CloseIcon from '@mui/icons-material/Close';
-import ArrowBackIcon from '@mui/icons-material/ArrowBack';
-import { getFriendList } from '../service/friendlist';
-import chatService from '../service/chat';
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import { getFriendList } from "../service/friendlist";
+import webSocketService from "../service/websocket";
+import { useAuth } from "../context/AuthContext";
 
 function ChatSidebar({ onClose }) {
+  const { user } = useAuth();
   const [friends, setFriends] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
-  const [messages, setMessages] = useState([]); // Initialize as an empty array
-  const [newMessage, setNewMessage] = useState('');
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const chatBoxRef = useRef(null);
+
+  const currentUserId = user?.user_id;
 
   useEffect(() => {
+    console.log(`Current User ID: ${currentUserId}`);
+
     const fetchFriends = async () => {
       try {
         const friendList = await getFriendList();
         setFriends(friendList);
       } catch (err) {
-        console.error('Error loading friends:', err.message);
-        setError('Failed to load friend list.');
+        console.error("Error loading friends:", err.message);
+        setError("Failed to load friend list.");
       } finally {
         setLoading(false);
       }
     };
 
     fetchFriends();
-  }, []);
+  }, [currentUserId]);
+
+  useEffect(() => {
+    const handleIncomingMessage = (message) => {
+      if (message.type === "new_message") {
+        console.log("New message received:", message);
+        if (
+          selectedUser &&
+          (message.sender_id === selectedUser.id || message.recipient_id === selectedUser.id)
+        ) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              ...message,
+              isSent: message.sender_id === currentUserId,
+            },
+          ]);
+        }
+      }
+    };
+
+    webSocketService.addMessageListener(handleIncomingMessage);
+
+    return () => {
+      webSocketService.removeMessageListener(handleIncomingMessage);
+    };
+  }, [selectedUser, currentUserId]);
 
   useEffect(() => {
     if (selectedUser) {
-      const fetchMessages = async () => {
-        try {
-          const messageHistory = await chatService.getMessageHistory(selectedUser.id);
-          setMessages(Array.isArray(messageHistory) ? messageHistory : []); // Ensure it's always an array
-        } catch (err) {
-          console.error('Error fetching messages:', err);
-          setMessages([]); // Fallback to empty array on error
+      console.log(`Chat ID: ${selectedUser.id}`);
+      const payload = {
+        type: "get_message_history",
+        chat_id: selectedUser.id,
+      };
+      webSocketService.sendMessage(payload);
+
+      const handleMessageHistory = (message) => {
+        if (message.type === "message_history" && message.chat_id === selectedUser.id) {
+          const sentMessages = message.content.sent_messages.map((msg) => ({
+            ...msg,
+            isSent: true,
+          }));
+          const receivedMessages = message.content.received_messages.map((msg) => ({
+            ...msg,
+            isSent: false,
+          }));
+
+          const allMessages = [...sentMessages, ...receivedMessages].sort(
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
+          );
+
+          setMessages(allMessages);
+          console.log("Received Messages:", allMessages);
         }
       };
 
-      fetchMessages();
-
-      const handleIncomingMessage = (message) => {
-        if (
-          message.sender_id === selectedUser.id ||
-          message.recipient_id === selectedUser.id
-        ) {
-          setMessages((prev) => [...prev, message]);
-        }
-      };
-
-      chatService.addMessageListener(handleIncomingMessage);
+      webSocketService.addMessageListener(handleMessageHistory);
 
       return () => {
-        chatService.removeMessageListener(handleIncomingMessage);
+        webSocketService.removeMessageListener(handleMessageHistory);
       };
     }
   }, [selectedUser]);
+
+  useEffect(() => {
+    if (chatBoxRef.current) {
+      chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
+    }
+  }, [messages]);
 
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser) return;
 
-    const message = {
+    const payload = {
+      type: "send_message",
       recipient_id: selectedUser.id,
       content: newMessage,
     };
 
-    chatService.sendMessage(selectedUser.id, newMessage);
+    webSocketService.sendMessage(payload);
+
     setMessages((prev) => [
       ...prev,
       {
-        sender_id: 'me', // Replace with the current user's ID from context/auth
+        sender_id: currentUserId,
         recipient_id: selectedUser.id,
         content: newMessage,
         created_at: new Date().toISOString(),
+        isSent: true,
       },
     ]);
-    setNewMessage('');
+
+    setNewMessage("");
   };
 
   return (
     <Box
       sx={{
         width: 450,
-        bgcolor: '#1f1f1f',
-        color: 'white',
+        bgcolor: "#1f1f1f",
+        color: "white",
         padding: 2,
-        position: 'fixed',
+        position: "fixed",
         top: 64,
         right: 0,
         bottom: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.5)',
+        display: "flex",
+        flexDirection: "column",
+        boxShadow: "-2px 0 5px rgba(0, 0, 0, 0.5)",
       }}
     >
       {selectedUser ? (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Chat Header */}
+        <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              borderBottom: '1px solid #333',
+              display: "flex",
+              alignItems: "center",
+              borderBottom: "1px solid #333",
               paddingBottom: 2,
               marginBottom: 2,
               paddingTop: 4,
@@ -124,22 +172,22 @@ function ChatSidebar({ onClose }) {
           >
             <IconButton
               onClick={() => setSelectedUser(null)}
-              sx={{ color: '#90caf9', marginRight: 2 }}
+              sx={{ color: "#90caf9", marginRight: 2 }}
             >
               <ArrowBackIcon />
             </IconButton>
-            <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
+            <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
               Chat with {selectedUser.nickname}
             </Typography>
           </Box>
 
-          {/* Chat Messages */}
           <Box
+            ref={chatBoxRef}
             sx={{
               flexGrow: 1,
-              overflowY: 'auto',
+              overflowY: "auto",
               padding: 2,
-              bgcolor: '#121212',
+              bgcolor: "#121212",
               borderRadius: 2,
             }}
           >
@@ -148,17 +196,17 @@ function ChatSidebar({ onClose }) {
                 <Box
                   key={index}
                   sx={{
-                    display: 'flex',
-                    justifyContent: message.sender_id === 'me' ? 'flex-end' : 'flex-start',
+                    display: "flex",
+                    justifyContent: message.isSent ? "flex-end" : "flex-start",
                     marginBottom: 2,
                   }}
                 >
                   <Paper
                     sx={{
                       padding: 2,
-                      maxWidth: '70%',
-                      bgcolor: message.sender_id === 'me' ? '#90caf9' : '#333',
-                      color: message.sender_id === 'me' ? '#000' : '#fff',
+                      maxWidth: "70%",
+                      bgcolor: message.isSent ? "#90caf9" : "#333",
+                      color: message.isSent ? "#000" : "#fff",
                       borderRadius: 2,
                     }}
                   >
@@ -167,21 +215,20 @@ function ChatSidebar({ onClose }) {
                 </Box>
               ))
             ) : (
-              <Typography sx={{ color: '#b0bec5', textAlign: 'center' }}>
+              <Typography sx={{ color: "#b0bec5", textAlign: "center" }}>
                 No messages yet. Start the conversation!
               </Typography>
             )}
           </Box>
 
-          {/* Chat Input */}
           <Box
             component="form"
             sx={{
-              display: 'flex',
-              alignItems: 'center',
+              display: "flex",
+              alignItems: "center",
               marginTop: 2,
               paddingTop: 2,
-              borderTop: '1px solid #333',
+              borderTop: "1px solid #333",
             }}
             onSubmit={handleSendMessage}
           >
@@ -192,9 +239,9 @@ function ChatSidebar({ onClose }) {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               sx={{
-                bgcolor: '#333',
+                bgcolor: "#333",
                 borderRadius: 2,
-                input: { color: '#fff' },
+                input: { color: "#fff" },
                 marginRight: 2,
               }}
             />
@@ -202,9 +249,9 @@ function ChatSidebar({ onClose }) {
               type="submit"
               variant="contained"
               sx={{
-                bgcolor: '#90caf9',
-                color: 'black',
-                '&:hover': { bgcolor: '#80b7e8' },
+                bgcolor: "#90caf9",
+                color: "black",
+                "&:hover": { bgcolor: "#80b7e8" },
               }}
             >
               Send
@@ -212,48 +259,44 @@ function ChatSidebar({ onClose }) {
           </Box>
         </Box>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          {/* Sidebar Header */}
+        <Box sx={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <Box
             sx={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
               marginBottom: 2,
               paddingTop: 4,
             }}
           >
-            <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
+            <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
               Chats
             </Typography>
             <Button
-              onClick={() => {
-                if (onClose) onClose();
-              }}
+              onClick={onClose}
               sx={{
-                color: 'white',
+                color: "white",
                 minWidth: 0,
                 padding: 0,
-                '&:hover': { color: '#90caf9' },
+                "&:hover": { color: "#90caf9" },
               }}
             >
               <CloseIcon fontSize="large" />
             </Button>
           </Box>
-          <Divider sx={{ bgcolor: '#333', marginBottom: 2 }} />
+          <Divider sx={{ bgcolor: "#333", marginBottom: 2 }} />
 
-          {/* User List */}
           {loading ? (
             <Typography>Loading friends...</Typography>
           ) : error ? (
-            <Typography sx={{ color: 'red' }}>{error}</Typography>
+            <Typography sx={{ color: "red" }}>{error}</Typography>
           ) : friends.length === 0 ? (
             <Typography>No friends to chat with.</Typography>
           ) : (
             <List
               sx={{
                 flexGrow: 1,
-                overflowY: 'auto',
+                overflowY: "auto",
                 padding: 0,
               }}
             >
@@ -262,19 +305,19 @@ function ChatSidebar({ onClose }) {
                   button
                   key={friend.id}
                   sx={{
-                    display: 'flex',
-                    alignItems: 'center',
+                    display: "flex",
+                    alignItems: "center",
                     padding: 1,
                     borderRadius: 1,
-                    '&:hover': { bgcolor: '#333' },
+                    "&:hover": { bgcolor: "#333" },
                   }}
                   onClick={() => setSelectedUser(friend)}
                 >
                   <ListItemText
-                    primary={friend.nickname || 'Unknown'}
+                    primary={friend.nickname || "Unknown"}
                     primaryTypographyProps={{
-                      variant: 'body1',
-                      color: 'white',
+                      variant: "body1",
+                      color: "white",
                     }}
                   />
                 </ListItem>
