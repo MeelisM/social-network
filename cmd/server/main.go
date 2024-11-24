@@ -9,6 +9,7 @@ import (
 	"social-network/internal/middleware"
 	"social-network/internal/service"
 	"social-network/pkg/db/sqlite"
+	"strings"
 )
 
 func main() {
@@ -94,6 +95,22 @@ func main() {
 	router.HandleFunc("/posts", authMiddleware.RequireAuth(postHandler.CreatePost))
 	router.HandleFunc("/posts/public", authMiddleware.RequireAuth(postHandler.GetPublicPosts))
 	router.HandleFunc("/posts/", authMiddleware.RequireAuth(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/comments") {
+			if r.Method == http.MethodPost {
+				postHandler.CreateComment(w, r)
+				return
+			}
+			if r.Method == http.MethodGet {
+				postHandler.GetComments(w, r)
+				return
+			}
+		}
+		if strings.Contains(r.URL.Path, "/comments/") {
+			if r.Method == http.MethodDelete {
+				postHandler.DeleteComment(w, r)
+				return
+			}
+		}
 		switch r.Method {
 		case http.MethodGet:
 			postHandler.GetPost(w, r)
