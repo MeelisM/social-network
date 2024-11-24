@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"log"
 	"net/http"
 	"social-network/internal/auth"
@@ -11,6 +12,10 @@ import (
 )
 
 func main() {
+	migrateDown := flag.Bool("down", false, "Run down migrations")
+	steps := flag.Int("steps", 0, "Number of migration steps (positive for up, negative for down)")
+	flag.Parse()
+
 	dbPath := "./data/social_network.db"
 	migrationsPath := "./pkg/db/migrations/sqlite"
 
@@ -18,6 +23,24 @@ func main() {
 	db, err := sqlite.New(dbPath)
 	if err != nil {
 		log.Fatal(err)
+	}
+
+	if *migrateDown {
+		log.Println("Running down migrations...")
+		if err := db.DownMigrations(migrationsPath); err != nil {
+			log.Fatal(err)
+		}
+		log.Println("Successfully ran down migrations")
+		return
+	}
+
+	if *steps != 0 {
+		log.Printf("Stepping migrations: %d\n", *steps)
+		if err := db.StepMigrations(migrationsPath, *steps); err != nil {
+			log.Fatal(err)
+		}
+		log.Printf("Successfully stepped migrations: %d\n", *steps)
+		return
 	}
 
 	// Run migrations
@@ -32,11 +55,10 @@ func main() {
 	postService := service.NewPostService(db.DB)
 	userService := service.NewUserService(db.DB)
 	notificationService := service.NewNotificationService(db.DB)
-	messageService := service.NewMessageService(db.DB)
+	chatService := service.NewChatService(db.DB)
 	followerService := service.NewFollowerService(db.DB, notificationService)
 	groupService := service.NewGroupService(db.DB, notificationService)
-	webSocketHandler := handler.NewWebSocketHandler(notificationService, messageService)
-
+	webSocketHandler := handler.NewWebSocketHandler(notificationService, chatService)
 	// Initialize handlers
 	authHandler := &handler.AuthHandler{
 		AuthService:    authService,
@@ -57,8 +79,8 @@ func main() {
 	notificationHandler := &handler.NotificationHandler{
 		NotificationService: notificationService,
 	}
-	messageHandler := &handler.MessageHandler{
-		MessageService: messageService,
+	chatHandler := &handler.ChatHandler{
+		ChatService: chatService,
 	}
 
 	// Setup routes
@@ -107,9 +129,12 @@ func main() {
 	router.HandleFunc("/groups/events/respond", authMiddleware.RequireAuth(groupHandler.HandleEventResponse))
 	router.HandleFunc("/groups/events/responses", authMiddleware.RequireAuth(groupHandler.GetEventResponses))
 
-	// Message routes
-	router.HandleFunc("/messages", authMiddleware.RequireAuth(messageHandler.GetMessageHistory))
-	router.HandleFunc("/messages/send", authMiddleware.RequireAuth(messageHandler.SendMessage))
+	// Chat routes
+	router.HandleFunc("/chat/private", authMiddleware.RequireAuth(chatHandler.GetPrivateMessageHistory))
+	router.HandleFunc("/chat/group", authMiddleware.RequireAuth(chatHandler.GetGroupMessageHistory))
+	router.HandleFunc("/chat/private/send", authMiddleware.RequireAuth(chatHandler.SendPrivateMessage))
+	router.HandleFunc("/chat/group/send", authMiddleware.RequireAuth(chatHandler.SendGroupMessage))
+	router.HandleFunc("/chat/mark-read", authMiddleware.RequireAuth(chatHandler.MarkMessagesRead))
 
 	// User routes
 	router.HandleFunc("/users", userHandler.GetAllUsers)
