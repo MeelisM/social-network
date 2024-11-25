@@ -16,7 +16,7 @@ func NewUserService(db *sql.DB) *UserService {
 }
 
 func (s *UserService) GetAllUsers() ([]model.User, error) {
-	query := `SELECT id, nickname FROM users`
+	query := `SELECT id, COALESCE(first_name, ''), COALESCE(last_name, '') FROM users`
 
 	rows, err := s.db.Query(query)
 	if err != nil {
@@ -27,10 +27,15 @@ func (s *UserService) GetAllUsers() ([]model.User, error) {
 	var users []model.User
 	for rows.Next() {
 		var user model.User
-		err := rows.Scan(&user.ID, &user.Nickname)
+		var firstName, lastName string
+		// Scan user ID, first name, and last name
+		err := rows.Scan(&user.ID, &firstName, &lastName)
 		if err != nil {
 			return nil, err
 		}
+		// Combine first and last names into a single username field
+		user.FirstName = firstName
+		user.LastName = lastName
 		users = append(users, user)
 	}
 

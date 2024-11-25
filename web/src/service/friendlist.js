@@ -8,24 +8,18 @@ export const getFriendList = async () => {
       axios.get('http://localhost:8080/following', { withCredentials: true }),
     ]);
 
-    // Debug the responses
-    console.log('Followers response:', followersResponse.data);
-    console.log('Following response:', followingResponse.data);
-
     // Extract the data from responses
     const followers = Array.isArray(followersResponse.data) ? followersResponse.data : [];
     const following = Array.isArray(followingResponse.data) ? followingResponse.data : [];
 
-    // Log parsed data
-    console.log('Parsed Followers:', followers);
-    console.log('Parsed Following:', following);
-
-    // Match users by ID to find mutual connections
+    // Match users by ID to find mutual connections and add displayName
     const friends = following.filter((user) =>
       followers.some((follower) => follower.id === user.id)
-    );
+    ).map(user => ({
+      ...user,
+      displayName: `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.nickname || 'Unknown User'
+    }));
 
-    console.log('Friends:', friends); // Debug mutual friends
     return friends;
   } catch (error) {
     console.error('Error fetching friend list:', error.message);

@@ -428,3 +428,68 @@ func (s *PostService) getPostComments(postID string) ([]model.PostComment, error
 
 	return comments, nil
 }
+
+func (s *PostService) GetUserPosts(userID string) ([]map[string]interface{}, error) {
+	// Query to fetch posts by the user
+	query := `
+        SELECT p.*, u.nickname, u.avatar
+        FROM posts p
+        LEFT JOIN users u ON p.user_id = u.id
+        WHERE p.user_id = ?
+        ORDER BY p.created_at DESC
+    `
+
+	rows, err := s.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var userPosts []map[string]interface{}
+	for rows.Next() {
+		post := &model.Post{}
+		var nickname, avatar sql.NullString
+
+		err := rows.Scan(
+			&post.ID,
+			&post.UserID,
+			&post.Content,
+			&post.ImagePath,
+			&post.Privacy,
+			&post.CreatedAt,
+			&post.UpdatedAt,
+			&nickname,
+			&avatar,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		// Fetch comments for the post
+		comments, err := s.getPostComments(post.ID)
+		if err != nil {
+			return nil, err
+		}
+
+		// Combine post and user data
+		postWithDetails := map[string]interface{}{
+			"id":        post.ID,
+			"user_id":   post.UserID,
+			"nickname":  nickname.String,
+			"avatar":    avatar.String,
+			"content":   post.Content,
+			"imagePath": post.ImagePath,
+			"privacy":   post.Privacy,
+			"createdAt": post.CreatedAt,
+			"updatedAt": post.UpdatedAt,
+			"comments":  comments,
+		}
+		userPosts = append(userPosts, postWithDetails)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return userPosts, nil
+}

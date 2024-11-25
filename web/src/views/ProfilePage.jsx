@@ -29,14 +29,30 @@ function ProfilePage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
   const [isPublic, setIsPublic] = useState(true);
+  const [userPosts, setUserPosts] = useState([]);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   const isOwnProfile = loggedInUser?.user_id === identifier;
 
   useEffect(() => {
-    console.log("Logged-in user ID from context:", loggedInUser?.user_id);
-    console.log("Profile being viewed (URL identifier):", identifier);
-    console.log("Is own profile:", isOwnProfile);
-  }, [loggedInUser, identifier]);
+    const fetchPosts = async () => {
+      try {
+        const res = await fetch(
+          `http://localhost:8080/users/posts?user_id=${identifier}`,
+          {
+            credentials: "include",
+          }
+        );
+        if (!res.ok) throw new Error("Failed to fetch user posts");
+        const data = await res.json();
+        setUserPosts(data || []);
+      } catch (err) {
+        console.error("Error fetching posts:", err);
+      }
+    };
+
+    fetchPosts();
+  }, [identifier]);
 
   useEffect(() => {
     async function fetchUser() {
@@ -85,6 +101,8 @@ function ProfilePage() {
         }
         const data = await res.json();
         setFollowers(data || []);
+        // Check if logged-in user is following this profile
+        setIsFollowing(data.some(follower => follower.id === loggedInUser?.user_id));
       } catch (err) {
         console.error(err);
       }
@@ -126,7 +144,7 @@ function ProfilePage() {
     fetchFollowers();
     fetchFollowing();
     fetchOwnedGroups();
-  }, [identifier, isOwnProfile]);
+  }, [identifier, isOwnProfile, loggedInUser?.user_id]);
 
   const handleFollow = async () => {
     try {
@@ -141,8 +159,9 @@ function ProfilePage() {
       if (!res.ok) {
         throw new Error("Error following user.");
       }
+      setIsFollowing(true);
+      setFollowers(prev => [...prev, loggedInUser]);
       alert("Followed successfully!");
-      setFollowers((prev) => [...prev, loggedInUser]);
     } catch (err) {
       console.error("Error following user:", err);
       alert("Failed to follow user.");
@@ -151,8 +170,8 @@ function ProfilePage() {
 
   const handleUnfollow = async () => {
     try {
-      const res = await fetch(`http://localhost:8080/follow`, {
-        method: "DELETE",
+      const res = await fetch(`http://localhost:8080/unfollow`, {
+        method: "POST",
         credentials: "include",
         headers: {
           "Content-Type": "application/json",
@@ -162,10 +181,9 @@ function ProfilePage() {
       if (!res.ok) {
         throw new Error("Error unfollowing user.");
       }
+      setIsFollowing(false);
+      setFollowers(prev => prev.filter(follower => follower.id !== loggedInUser?.user_id));
       alert("Unfollowed successfully!");
-      setFollowers((prev) =>
-        prev.filter((follower) => follower.user_id !== identifier)
-      );
     } catch (err) {
       console.error("Error unfollowing user:", err);
       alert("Failed to unfollow user.");
@@ -176,7 +194,7 @@ function ProfilePage() {
     setInviteLoading(true);
     try {
       await inviteToGroup(groupId, [user.id]);
-      alert(`Invitation sent to ${user.nickname} for group ID: ${groupId}`);
+      alert(`Invitation sent to ${user.username} for group ID: ${groupId}`);
     } catch (error) {
       console.error("Error sending invite:", error);
       alert("Failed to send invite. Please try again.");
@@ -194,7 +212,7 @@ function ProfilePage() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ is_public: !isPublic }), 
+        body: JSON.stringify({ is_public: !isPublic }),
       });
       if (!res.ok) {
         throw new Error("Error updating profile visibility.");
@@ -206,19 +224,11 @@ function ProfilePage() {
       alert("Failed to change profile visibility.");
     }
   };
-  
 
   if (loading) {
     return (
       <MainLayout>
-        <Typography
-          variant="h6"
-          sx={{
-            color: "white",
-            textAlign: "center",
-            marginTop: 4,
-          }}
-        >
+        <Typography variant="h6" sx={{ color: "white", textAlign: "center", marginTop: 4 }}>
           Loading profile...
         </Typography>
       </MainLayout>
@@ -250,35 +260,72 @@ function ProfilePage() {
             justifyContent: "space-between",
           }}
         >
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Avatar
-              src={user.avatar}
-              alt={user.nickname}
-              sx={{ width: 70, height: 70, marginRight: 3 }}
-            />
-            <Typography
-              variant="h5"
-              sx={{
-                color: "white",
-                fontWeight: "bold",
-              }}
-            >
-              {user.nickname}
-            </Typography>
+
+<Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
+  <Avatar
+    sx={{
+      width: 70,
+      height: 70,
+      backgroundColor: "#90caf9",
+      fontSize: "1.5rem",
+      fontWeight: "bold",
+    }}
+  >
+    {/* Update the Avatar text to show initials */}
+    {`${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase()}
+  </Avatar>
+  <Box>
+    <Typography
+      variant="h5"
+      sx={{
+        color: "white",
+        fontWeight: "bold",
+        marginBottom: 1,
+      }}
+    >
+      {/* Update the display name */}
+      {`${user.first_name || ""} ${user.last_name || ""}`.trim() || "No Name"}
+    </Typography>
+    {user.nickname && (
+      <Typography
+        variant="subtitle1"
+        sx={{
+          color: "#b0bec5",
+        }}
+      >
+        @{user.nickname}
+      </Typography>
+    )}
+  </Box>
+</Box>
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            {!isOwnProfile && (
+              <Button
+                variant="contained"
+                color={isFollowing ? "error" : "primary"}
+                onClick={isFollowing ? handleUnfollow : handleFollow}
+                sx={{
+                  height: 40,
+                  fontSize: "0.875rem",
+                }}
+              >
+                {isFollowing ? "Unfollow" : "Follow"}
+              </Button>
+            )}
+            {isOwnProfile && (
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={toggleProfileType}
+                sx={{
+                  height: 40,
+                  fontSize: "0.875rem",
+                }}
+              >
+                Set Profile {isPublic ? "Private" : "Public"}
+              </Button>
+            )}
           </Box>
-          {isOwnProfile && (
-            <Button
-              variant="contained"
-              color="secondary"
-              onClick={toggleProfileType}
-              sx={{
-                height: 40,
-                fontSize: "0.875rem",
-              }}
-            >
-              Set Profile {isPublic ? "Private" : "Public"}
-            </Button>
-          )}
         </Box>
 
         {/* About Me Section */}
@@ -293,23 +340,56 @@ function ProfilePage() {
             borderRadius: 3,
           }}
         >
-          <Typography
-            variant="h6"
-            sx={{
-              color: "white",
-              marginBottom: 2,
-            }}
-          >
+          <Typography variant="h6" sx={{ color: "white", marginBottom: 2 }}>
             About Me
           </Typography>
-          <Typography
-            variant="body1"
-            sx={{
-              color: "#b0bec5",
-            }}
-          >
+          <Typography variant="body1" sx={{ color: "#b0bec5" }}>
             {user.about_me || "No about me information available."}
           </Typography>
+        </Box>
+
+        {/* User Posts Section */}
+        <Box
+          sx={{
+            margin: "0 auto",
+            maxWidth: "900px",
+            marginBottom: 4,
+          }}
+        >
+          <Typography variant="h6" sx={{ color: "white", marginBottom: 2 }}>
+            Posts
+          </Typography>
+          <Grid container spacing={2}>
+            {userPosts.map((post) => (
+              <Grid item xs={12} key={post.id}>
+                <Paper
+                  sx={{
+                    padding: 2,
+                    backgroundColor: "#1f1f1f",
+                    color: "#ffffff",
+                    borderRadius: 3,
+                  }}
+                >
+                  <Typography variant="body1" sx={{ color: "#b0bec5" }}>
+                    {post.content}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    sx={{ color: "#808080", display: "block", marginTop: 1 }}
+                  >
+                    {new Date(post.created_at).toLocaleDateString()}
+                  </Typography>
+                </Paper>
+              </Grid>
+            ))}
+            {userPosts.length === 0 && (
+              <Grid item xs={12}>
+                <Typography sx={{ color: "#b0bec5" }}>
+                  No posts yet.
+                </Typography>
+              </Grid>
+            )}
+          </Grid>
         </Box>
 
         {/* Followers and Following */}
@@ -337,14 +417,14 @@ function ProfilePage() {
               {followers.length > 0 ? (
                 followers.map((follower) => (
                   <Typography
-                    key={follower.id || follower.nickname}
+                    key={follower.id}
                     sx={{
                       fontSize: "0.95rem",
                       color: "#b0bec5",
                       marginBottom: 1,
                     }}
                   >
-                    {follower.nickname || "Unknown"}
+                    {`${follower.first_name} ${follower.last_name}`.trim()}
                   </Typography>
                 ))
               ) : (
@@ -369,14 +449,14 @@ function ProfilePage() {
               {following.length > 0 ? (
                 following.map((followed) => (
                   <Typography
-                    key={followed.id || followed.nickname}
+                    key={followed.id}
                     sx={{
                       fontSize: "0.95rem",
                       color: "#b0bec5",
                       marginBottom: 1,
                     }}
                   >
-                    {followed.nickname || "Unknown"}
+                    {`${followed.first_name} ${followed.last_name}`.trim()}
                   </Typography>
                 ))
               ) : (

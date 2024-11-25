@@ -87,22 +87,22 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
     ...groups.map(g => ({ ...g, type: "group" }))
   ]
     .filter(chat => {
-      // Safely retrieve the name based on chat type, falling back to an empty string
       const name = chat.type === "private" 
-        ? (chat.nickname || chat.name || "") 
+        ? (chat.displayName || `${chat.first_name || ''} ${chat.last_name || ''}`.trim() || chat.nickname || "Unknown User")
         : (chat.title || chat.name || "");
       
-      // Ensure name is always a string to safely call toLowerCase()
       return name.toLowerCase().includes(searchQuery.toLowerCase());
     })
     .sort((a, b) => {
-      // Sort by unread first, then alphabetically
       if (unreadCounts[b.id] && !unreadCounts[a.id]) return 1;
       if (!unreadCounts[b.id] && unreadCounts[a.id]) return -1;
   
-      // Safely retrieve and compare names for sorting
-      const nameA = a.type === "private" ? (a.nickname || a.name || "") : (a.title || a.name || "");
-      const nameB = b.type === "private" ? (b.nickname || b.name || "") : (b.title || b.name || "");
+      const nameA = a.type === "private" 
+        ? (a.displayName || `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.nickname || "Unknown User")
+        : (a.title || a.name || "");
+      const nameB = b.type === "private" 
+        ? (b.displayName || `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.nickname || "Unknown User")
+        : (b.title || a.name || "");
       return nameA.localeCompare(nameB);
     });
   
@@ -134,9 +134,11 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
-              {selectedUser.type === "group" ? <GroupIcon sx={{ mr: 1, verticalAlign: "middle" }} /> : <PersonIcon sx={{ mr: 1, verticalAlign: "middle" }} />}
-              {selectedUser.nickname || selectedUser.title || selectedUser.name}
-            </Typography>
+  {selectedUser.type === "group" ? <GroupIcon sx={{ mr: 1, verticalAlign: "middle" }} /> : <PersonIcon sx={{ mr: 1, verticalAlign: "middle" }} />}
+  {selectedUser.type === "private" 
+    ? (selectedUser.displayName || `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || selectedUser.nickname || "Unknown User")
+    : (selectedUser.title || selectedUser.name || "Unknown Group")}
+</Typography>
           </Box>
           <Box ref={chatBoxRef} sx={{
             flexGrow: 1,
@@ -267,11 +269,11 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
                   </Avatar>
                 </Badge>
                 <ListItemText
-                  primary={item.type === "private" ? 
-                    (item.nickname || item.name || "Unknown Friend") : 
-                    (item.title || item.name || "Unknown Group")}
-                  primaryTypographyProps={{ variant: "body1", color: "white" }}
-                />
+  primary={item.type === "private" 
+    ? (item.displayName || `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.nickname || "Unknown User")
+    : (item.title || item.name || "Unknown Group")}
+  primaryTypographyProps={{ variant: "body1", color: "white" }}
+/>
               </ListItem>
             ))}
           </List>
