@@ -119,7 +119,7 @@ func (s *FollowerService) RespondToRequest(requestID string, userID string, acce
 
 func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, error) {
 	rows, err := s.db.Query(`
-        SELECT u.id, COALESCE(u.nickname, '') AS nickname 
+        SELECT u.id, COALESCE(u.nickname, '') AS nickname, u.first_name, u.last_name
         FROM follow_requests 
         INNER JOIN users u ON follow_requests.follower_id = u.id
         WHERE follow_requests.following_id = ? AND follow_requests.status = 'accepted'`,
@@ -131,19 +131,24 @@ func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, erro
 
 	var followers []map[string]string
 	for rows.Next() {
-		var id, nickname string
-		if err := rows.Scan(&id, &nickname); err != nil {
+		var id, nickname, firstName, lastName string
+		if err := rows.Scan(&id, &nickname, &firstName, &lastName); err != nil {
 			return nil, err
 		}
-		followers = append(followers, map[string]string{"id": id, "nickname": nickname})
+		followers = append(followers, map[string]string{
+			"id":         id,
+			"nickname":   nickname,
+			"first_name": firstName,
+			"last_name":  lastName,
+		})
 	}
 	return followers, nil
 }
 
 func (s *FollowerService) GetFollowing(userID string) ([]map[string]string, error) {
 	rows, err := s.db.Query(`
-        SELECT u.id, u.nickname 
-        FROM follow_requests 
+        SELECT u.id, u.nickname, u.first_name, u.last_name
+        FROM follow_requests
         INNER JOIN users u ON follow_requests.following_id = u.id
         WHERE follow_requests.follower_id = ? AND follow_requests.status = 'accepted'`,
 		userID)
@@ -154,11 +159,16 @@ func (s *FollowerService) GetFollowing(userID string) ([]map[string]string, erro
 
 	var following []map[string]string
 	for rows.Next() {
-		var id, nickname string
-		if err := rows.Scan(&id, &nickname); err != nil {
+		var id, nickname, firstName, lastName string
+		if err := rows.Scan(&id, &nickname, &firstName, &lastName); err != nil {
 			return nil, err
 		}
-		following = append(following, map[string]string{"id": id, "nickname": nickname})
+		following = append(following, map[string]string{
+			"id":         id,
+			"nickname":   nickname,
+			"first_name": firstName,
+			"last_name":  lastName,
+		})
 	}
 	return following, nil
 }
@@ -195,5 +205,32 @@ func (s *FollowerService) GetFollowStatus(followerID, followingID string, status
 		*status = "not_followed"
 		return nil
 	}
+	return err
+}
+
+func (s *FollowerService) Unfollow(followerID, followingID string) error {
+	var status string
+	err := s.db.QueryRow(`
+        SELECT status 
+        FROM follow_requests 
+        WHERE follower_id = ? AND following_id = ?`,
+		followerID, followingID).Scan(&status)
+
+	if err == sql.ErrNoRows {
+		return errors.New("not following this user")
+	}
+	if err != nil {
+		return err
+	}
+
+	if status != "accepted" {
+		return errors.New("not following this user")
+	}
+
+	_, err = s.db.Exec(`
+        DELETE FROM follow_requests 
+        WHERE follower_id = ? AND following_id = ?`,
+		followerID, followingID)
+
 	return err
 }

@@ -155,3 +155,26 @@ func (h *FollowerHandler) GetFollowStatus(w http.ResponseWriter, r *http.Request
 
 	json.NewEncoder(w).Encode(map[string]string{"status": status})
 }
+
+func (h *FollowerHandler) Unfollow(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input struct {
+		UserID string `json:"user_id"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	if err := h.FollowerService.Unfollow(userID, input.UserID); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}

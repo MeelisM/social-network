@@ -130,6 +130,7 @@ func main() {
 	router.HandleFunc("/following", authMiddleware.RequireAuth(followerHandler.GetFollowing))
 	router.HandleFunc("/follow/pending", authMiddleware.RequireAuth(followerHandler.GetPendingRequests))
 	router.HandleFunc("/follow/status", authMiddleware.RequireAuth(followerHandler.GetFollowStatus))
+	router.HandleFunc("/unfollow", authMiddleware.RequireAuth(followerHandler.Unfollow))
 
 	// Group routes
 	router.HandleFunc("/groups", authMiddleware.RequireAuth(groupHandler.HandleGroups))
