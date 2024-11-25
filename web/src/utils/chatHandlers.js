@@ -56,7 +56,6 @@ export const handleWebSocketSetup = (
     setUnreadCounts,
     setHasUnreadMessages
 ) => {
-    console.log("Processing message:", message); 
 
     switch(message.type) {
         case "private_message_history":
@@ -99,7 +98,6 @@ export const handleWebSocketSetup = (
             );
             break;
         default:
-            console.log("Unknown message type:", message.type);
     }
 };
   

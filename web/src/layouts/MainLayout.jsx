@@ -31,16 +31,13 @@ function MainLayout({ children }) {
 
   useEffect(() => {
     selectedUserRef.current = selectedUser;
-    console.debug("Updated selectedUserRef:", selectedUser);
   }, [selectedUser]);
 
   const handleIncomingMessage = useCallback((message) => {
     if (!user) return;
   
-    console.debug("Received WebSocket message:", message);
   
     if (message.type === 'notifications') {
-      console.debug("Received notifications:", message.content);
       setNotifications(message.content);
       if (!isNotificationSidebarOpen) {
         const hasUnread = message.content.some(notif => !notif.is_read);
@@ -50,7 +47,6 @@ function MainLayout({ children }) {
     }
   
     if (!selectedUser && message.type !== "unread_messages") {
-      console.debug("No user selected. Ignoring message.");
       return;
     }
   
@@ -145,7 +141,6 @@ function MainLayout({ children }) {
     setChatSidebarOpen(false);
     
     if (!isNotificationSidebarOpen && webSocketService.isConnected) {
-      console.debug("Requesting notifications on sidebar open");
       webSocketService.getNotifications();
       setHasUnreadNotifications(false);
     }

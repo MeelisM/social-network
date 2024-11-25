@@ -9,20 +9,20 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  CircularProgress,
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions
+  DialogActions,
 } from '@mui/material';
-import { MoreVert, Delete, Edit, Gif } from '@mui/icons-material';
+import { MoreVert, Delete, Edit, Image } from '@mui/icons-material';
 import PostService from "../service/post";
-import GiphyPicker from './GiphyPicker';
 
 function Post({ post, onPostUpdate, onPostDelete }) {
   const [commentText, setCommentText] = useState('');
-  const [commentGif, setCommentGif] = useState(null);
-  const [showGifPicker, setShowGifPicker] = useState(false);
-  const [isPickingForComment, setIsPickingForComment] = useState(false);
+  const [commentImage, setCommentImage] = useState(null);
+  const [commentImagePreview, setCommentImagePreview] = useState(null);
+  const [loading, setLoading] = useState(false);
   const [editingComment, setEditingComment] = useState(null);
   const [editingPost, setEditingPost] = useState(false);
   const [editedContent, setEditedContent] = useState(post.content);
@@ -44,15 +44,6 @@ function Post({ post, onPostUpdate, onPostDelete }) {
     setSelectedComment(null);
   };
 
-  const handleGifSelect = (gif) => {
-    if (isPickingForComment) {
-      setCommentGif(gif);
-    } else {
-      // Handle gif selection for post editing if needed
-    }
-    setShowGifPicker(false);
-  };
-
   // Post actions
   const handleEditPost = async () => {
     try {
@@ -67,7 +58,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
 
   const handleDeletePost = async () => {
     try {
-      await PostService.deletePost(post.id);
+      await PostService.deletePost(post.id, post.image_path);
       onPostDelete && onPostDelete();
       handleMenuClose();
     } catch (error) {
@@ -75,27 +66,48 @@ function Post({ post, onPostUpdate, onPostDelete }) {
     }
   };
 
+  const handleCommentImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size should be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      alert('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    setCommentImage(file);
+    setCommentImagePreview(URL.createObjectURL(file));
+  };
+
   // Comment actions
   const handleAddComment = async (e) => {
     e.preventDefault();
-    if (!commentText.trim() && !commentGif) return;
-  
+    if (!commentText.trim() && !commentImage) return;
+    
+    setLoading(true);
     try {
-      await PostService.createComment(post.id, { 
+      await PostService.createComment(post.id, {
         content: commentText,
-        gif: commentGif 
+        image: commentImage
       });
+      
       setCommentText('');
-      setCommentGif(null);
+      setCommentImage(null);
+      setCommentImagePreview(null);
       onPostUpdate && onPostUpdate();
     } catch (error) {
       console.error('Error adding comment:', error);
+    } finally {
+      setLoading(false);
     }
-  };
-
-  const openGifPicker = (forComment = true) => {
-    setIsPickingForComment(forComment);
-    setShowGifPicker(true);
   };
   
   const handleEditComment = async () => {
@@ -116,7 +128,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
     if (!selectedComment) return;
 
     try {
-      await PostService.deleteComment(post.id, selectedComment.id);
+      await PostService.deleteComment(post.id, selectedComment.id, selectedComment.image_path);
       handleCommentMenuClose();
       onPostUpdate && onPostUpdate();
     } catch (error) {
@@ -178,19 +190,20 @@ function Post({ post, onPostUpdate, onPostDelete }) {
           <Typography variant="body1" sx={{ color: "#b0bec5", mb: 3 }}>
             {post.content}
           </Typography>
-          {post.gifUrl && (
-            <Box
-              component="img"
-              src={post.gifUrl}
-              alt="Post GIF"
-              sx={{
-                width: "100%",
-                maxWidth: "500px",
-                borderRadius: 2,
-                display: "block",
-                margin: "20px auto",
-              }}
-            />
+          {/* Display post image if it exists */}
+          {post.image_path && (
+            <Box sx={{ mb: 3 }}>
+              <img
+                src={post.image_path}
+                alt="Post image"
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '500px',
+                  objectFit: 'contain',
+                  borderRadius: '8px'
+                }}
+              />
+            </Box>
           )}
         </>
       )}
@@ -215,29 +228,50 @@ function Post({ post, onPostUpdate, onPostDelete }) {
             }}
           />
           <Box sx={{ mt: 1, display: 'flex', gap: 2, alignItems: 'center' }}>
-            <IconButton 
-              onClick={() => openGifPicker(true)}
-              sx={{ color: '#90caf9' }}
-            >
-              <Gif />
-            </IconButton>
-            {commentGif && (
-              <Box
-                component="img"
-                src={commentGif.url}
-                alt="Selected GIF"
-                sx={{
-                  height: 40,
-                  borderRadius: 1
-                }}
-              />
+            <input
+              accept="image/*"
+              style={{ display: 'none' }}
+              id={`comment-image-${post.id}`}
+              type="file"
+              onChange={handleCommentImageChange}
+            />
+            <label htmlFor={`comment-image-${post.id}`}>
+              <IconButton component="span" sx={{ color: '#90caf9' }}>
+                <Image />
+              </IconButton>
+            </label>
+            
+            {commentImagePreview && (
+              <Box sx={{ position: 'relative' }}>
+                <img
+                  src={commentImagePreview}
+                  alt="Comment preview"
+                  style={{ height: 40, borderRadius: 4 }}
+                />
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setCommentImage(null);
+                    setCommentImagePreview(null);
+                  }}
+                  sx={{
+                    position: 'absolute',
+                    top: -10,
+                    right: -10,
+                    color: 'error.main'
+                  }}
+                >
+                  <Delete />
+                </IconButton>
+              </Box>
             )}
+            
             <Button 
               type="submit" 
               variant="contained" 
-              disabled={!commentText.trim() && !commentGif}
+              disabled={loading || (!commentText.trim() && !commentImage)}
             >
-              Comment
+              {loading ? <CircularProgress size={24} /> : 'Comment'}
             </Button>
           </Box>
         </Box>
@@ -271,13 +305,15 @@ function Post({ post, onPostUpdate, onPostDelete }) {
                 {comment.content}
               </Typography>
               
-              {comment.gifUrl && (
+              {comment.image_path && (
                 <Box
                   component="img"
-                  src={comment.gifUrl}
-                  alt="Comment GIF"
+                  src={comment.image_path}
+                  alt="Comment image"
                   sx={{
                     maxWidth: "300px",
+                    maxHeight: "200px",
+                    objectFit: "contain",
                     borderRadius: 2,
                     mt: 2,
                     ml: 4
@@ -341,13 +377,6 @@ function Post({ post, onPostUpdate, onPostDelete }) {
           <Button onClick={handleEditComment} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
-
-      {/* GIF Picker Dialog */}
-      <GiphyPicker
-        open={showGifPicker}
-        onClose={() => setShowGifPicker(false)}
-        onSelect={handleGifSelect}
-      />
     </Paper>
   );
 }
