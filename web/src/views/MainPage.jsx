@@ -1,20 +1,46 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Avatar, Paper, Grid } from "@mui/material";
+import { Box, Typography, Avatar, Paper, Grid, Alert } from "@mui/material";
 import MainLayout from "../layouts/MainLayout";
 import PostService from "../service/post";
+import Post from "../components/Post"; 
 
 function MainPage() {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const handlePostUpdate = async () => {
+    try {
+      const fetchedPosts = await PostService.getPosts();
+      setPosts(fetchedPosts);
+    } catch (error) {
+      console.error("Error refreshing posts:", error);
+    }
+  };
 
   useEffect(() => {
     const fetchPosts = async () => {
       try {
+        setLoading(true);
+        setError(null);
+        
+        console.log("Fetching posts...");
         const fetchedPosts = await PostService.getPosts();
-        setPosts(fetchedPosts || []); // Ensure posts is always an array
+        console.log("Received posts:", fetchedPosts);
+        
+        if (!fetchedPosts) {
+          throw new Error("No data received from server");
+        }
+        
+        if (!Array.isArray(fetchedPosts)) {
+          throw new Error(`Expected array of posts but got: ${typeof fetchedPosts}`);
+        }
+        
+        setPosts(fetchedPosts);
       } catch (error) {
         console.error("Error fetching posts:", error);
-        setPosts([]); // Fallback to an empty array in case of error
+        setError(error.message || "Failed to load posts");
+        setPosts([]);
       } finally {
         setLoading(false);
       }
@@ -32,7 +58,6 @@ function MainPage() {
           margin: "0 auto",
         }}
       >
-        {/* Feed Title */}
         <Typography
           variant="h4"
           sx={{
@@ -45,7 +70,19 @@ function MainPage() {
           Feed
         </Typography>
 
-        {/* Loading State */}
+        {error && (
+          <Alert 
+            severity="error" 
+            sx={{ 
+              marginBottom: 4,
+              backgroundColor: "#2f1f1f",
+              color: "#ff8a80"
+            }}
+          >
+            {error}
+          </Alert>
+        )}
+
         {loading ? (
           <Typography
             variant="h6"
@@ -53,7 +90,7 @@ function MainPage() {
           >
             Loading posts...
           </Typography>
-        ) : posts?.length === 0 ? ( // Safely check posts.length
+        ) : posts.length === 0 ? (
           <Typography
             variant="h6"
             sx={{ color: "white", textAlign: "center", marginTop: 4 }}
@@ -64,96 +101,11 @@ function MainPage() {
           <Grid container spacing={4}>
             {posts.map((post) => (
               <Grid item xs={12} key={post.id}>
-                <Paper
-                  sx={{
-                    padding: 3,
-                    backgroundColor: "#1f1f1f",
-                    color: "#ffffff",
-                    borderRadius: 3,
-                  }}
-                >
-                  {/* Poster Info */}
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginBottom: 3,
-                    }}
-                  >
-                    <Avatar
-                      src={
-                        post.avatar !== "null"
-                          ? post.avatar
-                          : "https://via.placeholder.com/50"
-                      }
-                      alt={post.username || "Unknown"}
-                      sx={{
-                        width: 50,
-                        height: 50,
-                        marginRight: 2,
-                        border: "2px solid #90caf9",
-                      }}
-                    />
-                    <Box>
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          color: "white",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {post.username || "Unknown"}
-                      </Typography>
-                      <Typography
-                        variant="subtitle2"
-                        sx={{
-                          color: "#90caf9",
-                        }}
-                      >
-                        @{post.nickname || "unknown"}
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* Post Content */}
-                  <Box>
-                    <Typography
-                      variant="h5"
-                      sx={{
-                        color: "#90caf9",
-                        marginBottom: 2,
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {post.title || "Untitled Post"}
-                    </Typography>
-                    <Typography
-                      variant="body1"
-                      sx={{
-                        color: "#b0bec5",
-                        marginBottom: 3,
-                      }}
-                    >
-                      {post.content}
-                    </Typography>
-                    {post.imagePath && (
-                      <Box
-                        component="img"
-                        src={post.imagePath}
-                        alt="Post Image"
-                        sx={{
-                          width: "100%",
-                          maxWidth: "850px",
-                          maxHeight: "600px",
-                          objectFit: "cover",
-                          borderRadius: 3,
-                          display: "block",
-                          margin: "20px auto",
-                        }}
-                      />
-                    )}
-                  </Box>
-                </Paper>
+                <Post
+                  post={post}
+                  onPostUpdate={handlePostUpdate}
+                  onPostDelete={handlePostUpdate}
+                />
               </Grid>
             ))}
           </Grid>

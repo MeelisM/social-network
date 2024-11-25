@@ -194,31 +194,29 @@ func (s *PostService) DeletePost(postID string, userID string) error {
 
 func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]interface{}, error) {
 	query := `
-        SELECT p.*, 
-            CASE 
-                WHEN p.privacy = 'public' THEN 1
-                WHEN p.privacy = 'private' AND p.user_id = ? THEN 1
-                WHEN p.privacy = 'almost_private' AND (p.user_id = ? OR EXISTS (
-                    SELECT 1 FROM post_viewers pv WHERE pv.post_id = p.id AND pv.user_id = ?
-                )) THEN 1
-                ELSE 0 
-            END as can_view
+        SELECT p.*,
+        CASE
+            WHEN p.privacy = 'public' THEN 1
+            WHEN p.privacy = 'private' AND p.user_id = ? THEN 1
+            WHEN p.privacy = 'almost_private' AND (p.user_id = ? OR EXISTS (
+                SELECT 1 FROM post_viewers pv WHERE pv.post_id = p.id AND pv.user_id = ?
+            )) THEN 1
+            ELSE 0
+        END as can_view
         FROM posts p
         WHERE can_view = 1
         ORDER BY p.created_at DESC
     `
-
 	rows, err := s.db.Query(query, requestingUserID, requestingUserID, requestingUserID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var postsWithNicknames []map[string]interface{}
+	var postsWithUserInfo []map[string]interface{}
 	for rows.Next() {
 		post := &model.Post{}
 		var canView int
-
 		err := rows.Scan(
 			&post.ID,
 			&post.UserID,
@@ -233,22 +231,38 @@ func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]inte
 			return nil, err
 		}
 
-		// Fetch user nickname and avatar
+		// Fetch user information
 		userQuery := `
-            SELECT nickname, avatar 
-            FROM users 
+            SELECT first_name, last_name, COALESCE(avatar, '') as avatar
+            FROM users
             WHERE id = ?
         `
-
-		var nickname, avatar string
-		err = s.db.QueryRow(userQuery, post.UserID).Scan(&nickname, &avatar)
+		var firstName, lastName, avatar sql.NullString
+		err = s.db.QueryRow(userQuery, post.UserID).Scan(&firstName, &lastName, &avatar)
 		if err != nil {
 			if err == sql.ErrNoRows {
-				nickname = "Unknown User"
-				avatar = ""
+				firstName = sql.NullString{String: "Unknown", Valid: true}
+				lastName = sql.NullString{String: "User", Valid: true}
+				avatar = sql.NullString{String: "", Valid: true}
 			} else {
 				return nil, err
 			}
+		}
+
+		// Get the actual string values, using defaults for NULL values
+		firstNameStr := "Unknown"
+		if firstName.Valid {
+			firstNameStr = firstName.String
+		}
+
+		lastNameStr := "User"
+		if lastName.Valid {
+			lastNameStr = lastName.String
+		}
+
+		avatarStr := ""
+		if avatar.Valid {
+			avatarStr = avatar.String
 		}
 
 		// Fetch comments
@@ -258,26 +272,27 @@ func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]inte
 		}
 
 		// Combine post and user data
-		postWithNickname := map[string]interface{}{
-			"id":        post.ID,
-			"user_id":   post.UserID,
-			"nickname":  nickname,
-			"avatar":    avatar,
-			"content":   post.Content,
-			"imagePath": post.ImagePath,
-			"privacy":   post.Privacy,
-			"createdAt": post.CreatedAt,
-			"updatedAt": post.UpdatedAt,
-			"comments":  comments,
+		postWithUser := map[string]interface{}{
+			"id":         post.ID,
+			"user_id":    post.UserID,
+			"first_Name": firstNameStr,
+			"last_Name":  lastNameStr,
+			"avatar":     avatarStr,
+			"content":    post.Content,
+			"imagePath":  post.ImagePath,
+			"privacy":    post.Privacy,
+			"createdAt":  post.CreatedAt,
+			"updatedAt":  post.UpdatedAt,
+			"comments":   comments,
 		}
-		postsWithNicknames = append(postsWithNicknames, postWithNickname)
+		postsWithUserInfo = append(postsWithUserInfo, postWithUser)
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return postsWithNicknames, nil
+	return postsWithUserInfo, nil
 }
 
 func (s *PostService) CreateComment(postID string, userID string, content string) (*model.PostComment, error) {
