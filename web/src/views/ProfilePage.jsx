@@ -28,7 +28,7 @@ function ProfilePage() {
   const [ownedGroups, setOwnedGroups] = useState([]);
   const [modalOpen, setModalOpen] = useState(false);
   const [inviteLoading, setInviteLoading] = useState(false);
-  const [isPublic, setIsPublic] = useState(true); // Mock for public/private toggle
+  const [isPublic, setIsPublic] = useState(true);
 
   const isOwnProfile = loggedInUser?.user_id === identifier;
 
@@ -54,6 +54,21 @@ function ProfilePage() {
         setError(err.message);
       } finally {
         setLoading(false);
+      }
+    }
+
+    async function fetchProfileVisibility() {
+      try {
+        const res = await fetch(`http://localhost:8080/profile/visibility`, {
+          credentials: "include",
+        });
+        if (!res.ok) {
+          throw new Error("Failed to fetch profile visibility.");
+        }
+        const { is_public } = await res.json();
+        setIsPublic(is_public);
+      } catch (err) {
+        console.error("Error fetching profile visibility:", err);
       }
     }
 
@@ -107,10 +122,11 @@ function ProfilePage() {
     }
 
     fetchUser();
+    if (isOwnProfile) fetchProfileVisibility();
     fetchFollowers();
     fetchFollowing();
     fetchOwnedGroups();
-  }, [identifier]);
+  }, [identifier, isOwnProfile]);
 
   const handleFollow = async () => {
     try {
@@ -126,7 +142,7 @@ function ProfilePage() {
         throw new Error("Error following user.");
       }
       alert("Followed successfully!");
-      setFollowers((prev) => [...prev, loggedInUser]); 
+      setFollowers((prev) => [...prev, loggedInUser]);
     } catch (err) {
       console.error("Error following user:", err);
       alert("Failed to follow user.");
@@ -149,7 +165,7 @@ function ProfilePage() {
       alert("Unfollowed successfully!");
       setFollowers((prev) =>
         prev.filter((follower) => follower.user_id !== identifier)
-      ); 
+      );
     } catch (err) {
       console.error("Error unfollowing user:", err);
       alert("Failed to unfollow user.");
@@ -170,11 +186,27 @@ function ProfilePage() {
     }
   };
 
-  const toggleProfileType = () => {
-    // Mock for toggling profile type
-    setIsPublic((prev) => !prev);
-    alert(`Profile type changed to ${!isPublic ? "Public" : "Private"}`);
+  const toggleProfileType = async () => {
+    try {
+      const res = await fetch(`http://localhost:8080/users/visibility/update`, {
+        method: "PUT",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ is_public: !isPublic }), 
+      });
+      if (!res.ok) {
+        throw new Error("Error updating profile visibility.");
+      }
+      setIsPublic((prev) => !prev);
+      alert(`Profile type changed to ${!isPublic ? "Public" : "Private"}`);
+    } catch (err) {
+      console.error("Error updating profile visibility:", err);
+      alert("Failed to change profile visibility.");
+    }
   };
+  
 
   if (loading) {
     return (
@@ -234,7 +266,7 @@ function ProfilePage() {
               {user.nickname}
             </Typography>
           </Box>
-          {isOwnProfile ? (
+          {isOwnProfile && (
             <Button
               variant="contained"
               color="secondary"
@@ -246,34 +278,38 @@ function ProfilePage() {
             >
               Set Profile {isPublic ? "Private" : "Public"}
             </Button>
-          ) : (
-            <>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleFollow}
-                sx={{
-                  height: 40,
-                  fontSize: "0.875rem",
-                  marginRight: 2,
-                }}
-              >
-                Follow
-              </Button>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={() => setModalOpen(true)}
-                disabled={inviteLoading}
-                sx={{
-                  height: 40,
-                  fontSize: "0.875rem",
-                }}
-              >
-                Invite to Group
-              </Button>
-            </>
           )}
+        </Box>
+
+        {/* About Me Section */}
+        <Box
+          sx={{
+            margin: "0 auto",
+            maxWidth: "900px",
+            marginTop: 3,
+            marginBottom: 4,
+            padding: 2,
+            backgroundColor: "#1f1f1f",
+            borderRadius: 3,
+          }}
+        >
+          <Typography
+            variant="h6"
+            sx={{
+              color: "white",
+              marginBottom: 2,
+            }}
+          >
+            About Me
+          </Typography>
+          <Typography
+            variant="body1"
+            sx={{
+              color: "#b0bec5",
+            }}
+          >
+            {user.about_me || "No about me information available."}
+          </Typography>
         </Box>
 
         {/* Followers and Following */}
