@@ -5,56 +5,41 @@ const WebSocketTester = () => {
   const [wsStatus, setWsStatus] = useState("Disconnected");
   const [receivedData, setReceivedData] = useState([]);
   const [error, setError] = useState(null);
+  const [selectedGroupId, setSelectedGroupId] = useState("");
 
-  // Handle WebSocket connection
   useEffect(() => {
     console.log("Setting up WebSocket...");
-    
     try {
-      // Only connect if not already connected
       if (!webSocketService.isConnected && !webSocketService.isConnecting) {
         const token = localStorage.getItem('token');
         if (!token) {
           setError("No authentication token found");
           return;
         }
-        
         const wsUrl = `${process.env.REACT_APP_WEBSOCKET_URL}/ws?token=${token}`;
-        console.log("Connecting to WebSocket at:", wsUrl);
         webSocketService.connect(wsUrl);
       }
-
-      // Status checker
       const statusInterval = setInterval(() => {
         setWsStatus(webSocketService.isConnected ? "Connected" : "Disconnected");
       }, 1000);
-
-      return () => {
-        clearInterval(statusInterval);
-      };
+      return () => clearInterval(statusInterval);
     } catch (err) {
       console.error("WebSocket setup error:", err);
       setError(err.message);
     }
   }, []);
 
-  // Handle WebSocket messages
   useEffect(() => {
     const handleMessage = (message) => {
       console.log("Received message:", message);
       setReceivedData(prev => [...prev, message]);
     };
-
     webSocketService.addMessageListener(handleMessage);
-
-    return () => {
-      webSocketService.removeMessageListener(handleMessage);
-    };
+    return () => webSocketService.removeMessageListener(handleMessage);
   }, []);
 
   const handleGetNotifications = () => {
     try {
-      console.log("Requesting notifications...");
       if (!webSocketService.isConnected) {
         setError("WebSocket not connected");
         return;
@@ -62,6 +47,23 @@ const WebSocketTester = () => {
       webSocketService.getNotifications();
     } catch (err) {
       console.error("Error getting notifications:", err);
+      setError(err.message);
+    }
+  };
+
+  const handleGetGroupHistory = () => {
+    try {
+      if (!webSocketService.isConnected) {
+        setError("WebSocket not connected");
+        return;
+      }
+      if (!selectedGroupId) {
+        setError("Please enter a group ID");
+        return;
+      }
+      webSocketService.getMessageHistory({ type: "group", id: selectedGroupId });
+    } catch (err) {
+      console.error("Error getting group history:", err);
       setError(err.message);
     }
   };
@@ -79,55 +81,61 @@ const WebSocketTester = () => {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h1>WebSocket Tester</h1>
+    <div className="p-5">
+      <h1 className="text-2xl font-bold mb-4">WebSocket Tester</h1>
       
-      {/* Status and Error Display */}
-      <div style={{ marginBottom: "20px" }}>
+      <div className="mb-5">
         <p>Status: {wsStatus}</p>
-        {error && <p style={{ color: "red" }}>Error: {error}</p>}
+        {error && <p className="text-red-500">Error: {error}</p>}
       </div>
 
-      {/* Controls */}
-      <div style={{ marginBottom: "20px" }}>
-        <button 
-          onClick={handleReconnect}
-          style={{ marginRight: "10px" }}
-        >
-          Reconnect
-        </button>
-        <button 
-          onClick={handleGetNotifications}
-          disabled={!webSocketService.isConnected}
-        >
-          Get Notifications
-        </button>
-      </div>
+      <div className="space-y-4">
+        <div className="flex gap-4">
+          <button
+            onClick={handleReconnect}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Reconnect
+          </button>
+          <button
+            onClick={handleGetNotifications}
+            disabled={!webSocketService.isConnected}
+            className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400"
+          >
+            Get Notifications
+          </button>
+        </div>
 
-      {/* Data Display */}
-      <div>
-        <h3>Received Messages:</h3>
-        <div style={{ 
-          border: "1px solid #ccc", 
-          padding: "10px",
-          marginTop: "10px",
-          maxHeight: "400px",
-          overflowY: "auto"
-        }}>
-          {receivedData.length === 0 ? (
-            <p>No messages received yet</p>
-          ) : (
-            receivedData.map((data, index) => (
-              <pre key={index} style={{ 
-                margin: "5px 0",
-                padding: "10px",
-                background: "#f5f5f5",
-                borderRadius: "4px"
-              }}>
-                {JSON.stringify(data, null, 2)}
-              </pre>
-            ))
-          )}
+        <div className="space-y-2">
+          <input
+            type="text"
+            value={selectedGroupId}
+            onChange={(e) => setSelectedGroupId(e.target.value)}
+            placeholder="Enter Group ID"
+            className="px-4 py-2 border rounded w-64"
+          />
+          <button
+            onClick={handleGetGroupHistory}
+            disabled={!webSocketService.isConnected}
+            className="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:bg-gray-400"
+          >
+            Get Group History
+          </button>
+        </div>
+
+        <div>
+          <h3 className="text-lg font-semibold mb-2">Received Messages:</h3>
+          <div className="border p-4 max-h-96 overflow-y-auto">
+            {receivedData.length === 0 ? (
+              <p>No messages received yet</p>
+            ) : (
+              receivedData.map((data, index) => (
+                <pre key={index} className="my-2 p-3 bg-gray-100 rounded">
+                  {JSON.stringify(data, null, 2)}
+                </pre>
+              ))
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -1,4 +1,3 @@
-// notificationHandlers.js
 export const handleWebSocketNotifications = (
     user,
     webSocketService,
