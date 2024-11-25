@@ -158,6 +158,7 @@ func main() {
 	// User routes
 	router.HandleFunc("/users", userHandler.GetAllUsers)
 	router.HandleFunc("/users/", userHandler.GetUserByUUID)
+	router.HandleFunc("/users/posts", authMiddleware.RequireAuth(postHandler.GetUserPosts))
 	router.HandleFunc("/users/visibility", authMiddleware.RequireAuth(userHandler.GetProfileVisibility))
 	router.HandleFunc("/users/visibility/update", authMiddleware.RequireAuth(userHandler.UpdateProfileVisibility))
 

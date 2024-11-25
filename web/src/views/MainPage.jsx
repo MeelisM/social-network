@@ -86,7 +86,7 @@ function MainPage() {
                           ? post.avatar
                           : "https://via.placeholder.com/50"
                       }
-                      alt={post.nickname || "Unknown"}
+                      alt={post.username || "Unknown"}
                       sx={{
                         width: 50,
                         height: 50,
@@ -102,7 +102,7 @@ function MainPage() {
                           fontWeight: "bold",
                         }}
                       >
-                        {post.nickname || "Unknown"}
+                        {post.username || "Unknown"}
                       </Typography>
                       <Typography
                         variant="subtitle2"

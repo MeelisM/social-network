@@ -4,7 +4,6 @@ import { useNavigate } from 'react-router-dom';
 
 function RegisterPage() {
   const [formData, setFormData] = useState({
-    username: '',
     email: '',
     password: '',
     first_name: '',
@@ -20,10 +19,6 @@ function RegisterPage() {
 
   const validateForm = () => {
     const newErrors = {};
-
-    if (!formData.username) {
-      newErrors.username = 'Username is required';
-    }
 
     if (!formData.email) {
       newErrors.email = 'Email is required';
