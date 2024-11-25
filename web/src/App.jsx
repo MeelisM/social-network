@@ -1,5 +1,3 @@
-// App.js
-
 import { useEffect, useRef } from "react";
 import { Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext";
@@ -16,6 +14,7 @@ import JoinedGroups from "./views/JoinedGroups";
 import AllGroups from "./views/AllGroups";
 import GroupPage from "./views/GroupPage";
 import webSocketService from "./service/websocket";
+import WebSocketTester from "./components/WebSocketTester";
 
 function App() {
   return (
@@ -34,6 +33,8 @@ function App() {
         <Route path="/joined-groups" element={<JoinedGroups />} />
         <Route path="/all-groups" element={<AllGroups />} />
         <Route path="/group/:id" element={<GroupPage />} />
+        <Route path="/websocket-test" element={<WebSocketTester />} />
+
       </Routes>
     </AuthProvider>
   );
