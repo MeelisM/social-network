@@ -39,22 +39,31 @@ func (s *UserService) GetAllUsers() ([]model.User, error) {
 
 func (s *UserService) GetUserByUUID(uuid string) (*model.User, error) {
 	query := `
-        SELECT id, nickname, avatar, about_me, is_public, created_at
+        SELECT id, email, first_name, last_name, date_of_birth, 
+               avatar, nickname, about_me, is_public, created_at, updated_at
         FROM users
         WHERE id = ?`
 
 	var user model.User
 	err := s.db.QueryRow(query, uuid).Scan(
-		&user.ID, &user.Nickname, &user.Avatar, &user.AboutMe, &user.IsPublic, &user.CreatedAt,
+		&user.ID,
+		&user.Email,
+		&user.FirstName,
+		&user.LastName,
+		&user.DateOfBirth,
+		&user.Avatar,
+		&user.Nickname,
+		&user.AboutMe,
+		&user.IsPublic,
+		&user.CreatedAt,
+		&user.UpdatedAt,
 	)
-
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return nil, errors.New("user not found")
 		}
 		return nil, err
 	}
-
 	return &user, nil
 }
 
