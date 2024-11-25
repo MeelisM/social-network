@@ -1,4 +1,3 @@
-// views/Login.js
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Box, Button, Container, TextField, Typography, Paper } from '@mui/material';
@@ -16,24 +15,41 @@ function Login() {
 
   const handleLogin = async () => {
     try {
+      console.log('Attempting login...');
+      
       const response = await axios.post('/login', {
         email,
         password,
       });
-  
-      const userData = response.data;
+      
+      console.log('Raw response:', response);
+      console.log('Response data:', response.data);
+      
+      // Store the complete response data
+      const userData = {
+        ...response.data,  // Spread all the data from the response
+        user_id: response.data.id // Also maintain the user_id field for backward compatibility
+      };
+      
+      console.log('About to save user data:', userData);
+      
+      // Save the full user data
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
-  
+      
+      console.log('Saved user data. Checking localStorage:', 
+        JSON.parse(localStorage.getItem('user'))
+      );
+      
       // Redirect to main page or previous page
       const from = location.state?.from?.pathname || '/';
       navigate(from);
     } catch (err) {
-      console.error('Error during login:', err.message);
+      console.error('Detailed login error:', err);
+      console.error('Error response:', err.response);
       setError(err.response?.data?.message || 'Login failed');
     }
   };
-  
 
   return (
     <Container
@@ -66,7 +82,6 @@ function Login() {
         <Typography variant="body1" color="text.secondary">
           Please log in to continue
         </Typography>
-
         <Box
           component="form"
           sx={{
@@ -77,6 +92,10 @@ function Login() {
           }}
           noValidate
           autoComplete="off"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleLogin();
+          }}
         >
           <TextField
             label="Email"
@@ -110,7 +129,7 @@ function Login() {
             variant="contained"
             color="primary"
             size="large"
-            onClick={handleLogin}
+            type="submit"
             sx={{
               mt: 2,
               fontWeight: 'bold',

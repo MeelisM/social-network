@@ -33,6 +33,7 @@ type PostComment struct {
 	PostID       string    `json:"post_id"`
 	UserID       string    `json:"user_id"`
 	Content      string    `json:"content"`
+	ImagePath    *string   `json:"image_path,omitempty"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 	UserNickname string    `json:"user_nickname,omitempty"`

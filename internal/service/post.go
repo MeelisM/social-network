@@ -295,8 +295,7 @@ func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]inte
 	return postsWithUserInfo, nil
 }
 
-func (s *PostService) CreateComment(postID string, userID string, content string) (*model.PostComment, error) {
-	// First verify the post exists and user can view it
+func (s *PostService) CreateComment(postID string, userID string, content string, imagePath *string) (*model.PostComment, error) {
 	_, err := s.GetPost(postID, userID)
 	if err != nil {
 		return nil, err
@@ -307,43 +306,70 @@ func (s *PostService) CreateComment(postID string, userID string, content string
 		PostID:    postID,
 		UserID:    userID,
 		Content:   content,
+		ImagePath: imagePath,
 		CreatedAt: time.Now(),
 		UpdatedAt: time.Now(),
 	}
 
 	_, err = s.db.Exec(`
-        INSERT INTO post_comments (id, post_id, user_id, content, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?)`,
+        INSERT INTO post_comments (id, post_id, user_id, content, image_path, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?)`,
 		comment.ID, comment.PostID, comment.UserID,
-		comment.Content, comment.CreatedAt, comment.UpdatedAt,
+		comment.Content, comment.ImagePath, comment.CreatedAt, comment.UpdatedAt,
 	)
 	if err != nil {
 		return nil, err
 	}
 
-	// Fetch user info for the response
 	err = s.db.QueryRow(`
         SELECT nickname, avatar FROM users WHERE id = ?`,
 		userID,
 	).Scan(&comment.UserNickname, &comment.UserAvatar)
 	if err != nil {
-		// Don't fail if we can't get user info, just continue
 		comment.UserNickname = "Unknown User"
 	}
 
 	return comment, nil
 }
 
-func (s *PostService) GetPostComments(postID string, requestingUserID string) ([]model.PostComment, error) {
-	// First verify the post exists and user can view it
-	_, err := s.GetPost(postID, requestingUserID)
+func (s *PostService) GetComment(commentID string) (*model.PostComment, error) {
+	comment := &model.PostComment{}
+	err := s.db.QueryRow(`
+        SELECT c.id, c.post_id, c.user_id, c.content, c.image_path, 
+               c.created_at, c.updated_at, u.nickname, u.avatar
+        FROM post_comments c
+        LEFT JOIN users u ON c.user_id = u.id
+        WHERE c.id = ?`,
+		commentID,
+	).Scan(
+		&comment.ID, &comment.PostID, &comment.UserID, &comment.Content,
+		&comment.ImagePath, &comment.CreatedAt, &comment.UpdatedAt,
+		&comment.UserNickname, &comment.UserAvatar,
+	)
+
+	if err == sql.ErrNoRows {
+		return nil, errors.New("comment not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	if comment.UserNickname == "" {
+		comment.UserNickname = "Unknown User"
+	}
+
+	return comment, nil
+}
+
+func (s *PostService) GetPostComments(postID string, userID string) ([]model.PostComment, error) {
+	_, err := s.GetPost(postID, userID)
 	if err != nil {
 		return nil, err
 	}
 
 	rows, err := s.db.Query(`
-        SELECT pc.id, pc.post_id, pc.user_id, pc.content, pc.created_at, pc.updated_at,
-               u.nickname, u.avatar
+        SELECT pc.id, pc.post_id, pc.user_id, pc.content, pc.image_path,
+               pc.created_at, pc.updated_at, u.nickname, u.avatar
         FROM post_comments pc
         LEFT JOIN users u ON pc.user_id = u.id
         WHERE pc.post_id = ?
@@ -358,19 +384,27 @@ func (s *PostService) GetPostComments(postID string, requestingUserID string) ([
 	var comments []model.PostComment
 	for rows.Next() {
 		var comment model.PostComment
+		var nickname, avatar sql.NullString
 		err := rows.Scan(
 			&comment.ID,
 			&comment.PostID,
 			&comment.UserID,
 			&comment.Content,
+			&comment.ImagePath,
 			&comment.CreatedAt,
 			&comment.UpdatedAt,
-			&comment.UserNickname,
-			&comment.UserAvatar,
+			&nickname,
+			&avatar,
 		)
 		if err != nil {
 			return nil, err
 		}
+
+		comment.UserNickname = nickname.String
+		if !nickname.Valid {
+			comment.UserNickname = "Unknown User"
+		}
+		comment.UserAvatar = avatar.String
 		comments = append(comments, comment)
 	}
 
@@ -378,7 +412,6 @@ func (s *PostService) GetPostComments(postID string, requestingUserID string) ([
 }
 
 func (s *PostService) DeleteComment(commentID string, userID string) error {
-	// Verify the comment exists and belongs to the user
 	var commentUserID string
 	err := s.db.QueryRow(`
         SELECT user_id FROM post_comments WHERE id = ?`,
@@ -401,8 +434,8 @@ func (s *PostService) DeleteComment(commentID string, userID string) error {
 
 func (s *PostService) getPostComments(postID string) ([]model.PostComment, error) {
 	rows, err := s.db.Query(`
-        SELECT pc.id, pc.post_id, pc.user_id, pc.content, pc.created_at, pc.updated_at,
-               u.nickname, u.avatar
+        SELECT pc.id, pc.post_id, pc.user_id, pc.content, pc.image_path, 
+               pc.created_at, pc.updated_at, u.nickname, u.avatar
         FROM post_comments pc
         LEFT JOIN users u ON pc.user_id = u.id
         WHERE pc.post_id = ?
@@ -423,6 +456,7 @@ func (s *PostService) getPostComments(postID string) ([]model.PostComment, error
 			&comment.PostID,
 			&comment.UserID,
 			&comment.Content,
+			&comment.ImagePath,
 			&comment.CreatedAt,
 			&comment.UpdatedAt,
 			&nickname,
@@ -445,7 +479,6 @@ func (s *PostService) getPostComments(postID string) ([]model.PostComment, error
 }
 
 func (s *PostService) GetUserPosts(userID string) ([]map[string]interface{}, error) {
-	// Query to fetch posts by the user
 	query := `
         SELECT p.*, u.nickname, u.avatar
         FROM posts p
@@ -480,13 +513,11 @@ func (s *PostService) GetUserPosts(userID string) ([]map[string]interface{}, err
 			return nil, err
 		}
 
-		// Fetch comments for the post
 		comments, err := s.getPostComments(post.ID)
 		if err != nil {
 			return nil, err
 		}
 
-		// Combine post and user data
 		postWithDetails := map[string]interface{}{
 			"id":        post.ID,
 			"user_id":   post.UserID,

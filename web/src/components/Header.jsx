@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { Box, Typography, IconButton, Avatar, Badge, Button } from "@mui/material";
@@ -20,6 +20,29 @@ function Header({
   const { user, setUser } = useAuth();
   const axios = useAxios();
   const navigate = useNavigate();
+
+  // Add debug logging
+  useEffect(() => {
+    console.log("Current user in Header:", user);
+    console.log("LocalStorage user:", JSON.parse(localStorage.getItem('user')));
+  }, [user]);
+
+  // Debug function to check user properties
+  const getUserDisplay = (user) => {
+    if (!user) {
+      console.log("User is null or undefined");
+      return "No User";
+    }
+    
+    console.log("User properties:", {
+      nickname: user.nickname,
+      firstName: user.first_name,
+      lastName: user.last_name,
+      id: user.id
+    });
+    
+    return user.nickname || `${user.first_name} ${user.last_name}` || "Unknown User";
+  };
 
   const handleLogout = async () => {
     try {
@@ -69,6 +92,7 @@ function Header({
           Social Network
         </Typography>
       </Box>
+
       {/* Right: User Info or Login Button */}
       <Box sx={{ display: "flex", alignItems: "center" }}>
         {user ? (
@@ -92,7 +116,7 @@ function Header({
               </Badge>
             </IconButton>
             <IconButton
-              onClick={() => navigate("/posts/new")} // Navigate to new post page
+              onClick={() => navigate("/posts/new")}
               sx={{ color: "white", marginRight: 2 }}
             >
               <AddIcon fontSize="large" color="primary" />
@@ -101,13 +125,15 @@ function Header({
               variant="body1"
               sx={{ color: "white", marginX: 1, fontSize: "1.2rem" }}
             >
-              {user.nickname}
+              {getUserDisplay(user)}
             </Typography>
             <Avatar
-              src={user.avatar !== "null" ? user.avatar : "https://via.placeholder.com/150"}
-              alt="User Avatar"
+              src={user.avatar !== "null" ? user.avatar : undefined}
+              alt={getUserDisplay(user)}
               sx={{ marginLeft: 1 }}
-            />
+            >
+              {(user.first_name?.[0] || user.nickname?.[0] || "?").toUpperCase()}
+            </Avatar>
             <IconButton
               sx={{ color: "white", marginLeft: 2, "&:hover": { bgcolor: "#333" } }}
               onClick={handleLogout}

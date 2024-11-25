@@ -1,21 +1,24 @@
 import axios from "axios";
-import imageService from "./giphy.js";
-
 
 const API_BASE_URL = "http://localhost:8080";
 
 const createPost = async (postData) => {
   try {
-    const payload = {
-      content: postData.content,
-      gifUrl: postData.gif?.url,
-      privacy: postData.privacy,
-      viewerIDs: postData.privacy === "almost_private" ? postData.viewers : [],
-      group: postData.group,
-    };
+    const formData = new FormData();
+    formData.append('content', postData.content);
+    formData.append('privacy', postData.privacy);
+    formData.append('group', postData.group);
 
-    const response = await axios.post(`${API_BASE_URL}/posts`, payload, {
-      headers: { "Content-Type": "application/json" },
+    if (postData.privacy === "almost_private") {
+      formData.append('viewerIDs', JSON.stringify(postData.viewers));
+    }
+
+    if (postData.image) {
+      formData.append('image', postData.image);
+    }
+
+    const response = await axios.post(`${API_BASE_URL}/posts`, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
       withCredentials: true,
     });
     return response.data;
@@ -37,7 +40,6 @@ const getPosts = async () => {
   }
 };
 
-// Updated to match backend route structure
 const updatePost = async (postId, updateData) => {
   try {
     const response = await axios.put(`${API_BASE_URL}/posts/${postId}`, updateData, {
@@ -53,7 +55,6 @@ const updatePost = async (postId, updateData) => {
   }
 };
 
-// Updated to match backend route structure
 const deletePost = async (postId, imagePath) => {
   try {
     await axios.delete(`${API_BASE_URL}/posts/${postId}`, {
@@ -68,17 +69,20 @@ const deletePost = async (postId, imagePath) => {
   }
 };
 
-// Updated to match backend route structure
 const createComment = async (postId, commentData) => {
   try {
+    const formData = new FormData();
+    formData.append('content', commentData.content);
+
+    if (commentData.image) {
+      formData.append('image', commentData.image);
+    }
+
     const response = await axios.post(
       `${API_BASE_URL}/posts/${postId}/comments`,
-      { 
-        content: commentData.content,
-        gifUrl: commentData.gif?.url
-      },
+      formData,
       {
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "multipart/form-data" },
         withCredentials: true,
       }
     );
@@ -89,7 +93,6 @@ const createComment = async (postId, commentData) => {
   }
 };
 
-// This endpoint doesn't exist in your backend routes - you'll need to remove it or add the route
 const updateComment = async (postId, commentId, updateData) => {
   try {
     const response = await axios.put(
@@ -109,7 +112,6 @@ const updateComment = async (postId, commentId, updateData) => {
   }
 };
 
-// Updated to match backend route structure
 const deleteComment = async (postId, commentId, imagePath) => {
   try {
     await axios.delete(`${API_BASE_URL}/posts/${postId}/comments/${commentId}`, {
@@ -124,7 +126,6 @@ const deleteComment = async (postId, commentId, imagePath) => {
   }
 };
 
-// Add this method to fetch comments for a post
 const getComments = async (postId) => {
   try {
     const response = await axios.get(`${API_BASE_URL}/posts/${postId}/comments`, {

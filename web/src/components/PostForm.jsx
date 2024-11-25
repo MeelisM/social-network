@@ -1,5 +1,4 @@
 import React, { useState } from "react";
-import PostService from "../service/post"; 
 import {
   Box,
   TextField,
@@ -13,42 +12,84 @@ import {
   ListItemText,
   OutlinedInput,
   Paper,
+  CircularProgress,
 } from "@mui/material";
+import { useAxios } from "../utils/axiosInstance";
 
 function PostForm() {
   const [content, setContent] = useState("");
   const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState(null);
   const [privacy, setPrivacy] = useState("public");
   const [viewers, setViewers] = useState([]);
-  const [group, setGroup] = useState("everyone");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const axios = useAxios();
 
   const handleImageChange = (e) => {
-    if (e.target.files.length > 0) {
-      setImage(e.target.files[0]);
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
     }
+
+    // Validate file size (5MB limit)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('File size should be less than 5MB');
+      return;
+    }
+
+    setImage(file);
+    setImagePreview(URL.createObjectURL(file));
+    setError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setLoading(true);
+    setError(null);
+
     try {
+      const formData = new FormData();
+      
+      // Add the post data
       const postData = {
         content,
-        image: image || null, 
         privacy,
-        viewers: privacy === "almost_private" ? viewers : [],
-        group,
+        viewerIDs: privacy === "almost_private" ? viewers : [],
       };
-      const response = await PostService.createPost(postData);
-      console.log("Post created successfully:", response);
-      alert("Post created successfully!"); 
-      setContent(""); 
+      
+      formData.append('postData', JSON.stringify(postData));
+      
+      // Add image if selected
+      if (image) {
+        formData.append('image', image);
+      }
+
+      const response = await axios.post('/posts', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+
+      console.log("Post created successfully:", response.data);
+      
+      // Reset form
+      setContent("");
       setImage(null);
+      setImagePreview(null);
       setPrivacy("public");
       setViewers([]);
-      setGroup("everyone");
-    } catch (error) {
-      console.error("Failed to create post:", error);
-      alert("Failed to create post. Please try again."); 
+      
+    } catch (err) {
+      console.error("Failed to create post:", err);
+      setError(err.response?.data?.message || 'Failed to create post. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -88,43 +129,70 @@ function PostForm() {
         fullWidth
         sx={{
           marginBottom: 3,
-          input: { backgroundColor: "#333", color: "#fff" },
-          label: { color: "#fff" },
+          "& .MuiFilledInput-root": {
+            backgroundColor: "#333",
+            "&:hover, &.Mui-focused": {
+              backgroundColor: "#444",
+            },
+          },
+          "& .MuiInputLabel-root": { color: "#90caf9" },
+          "& .MuiFilledInput-input": { color: "#fff" },
         }}
       />
 
       <Box sx={{ marginBottom: 3 }}>
-        <Typography
-          variant="subtitle1"
-          sx={{ color: "#90caf9", marginBottom: 1 }}
-        >
+        <Typography variant="subtitle1" sx={{ color: "#90caf9", marginBottom: 1 }}>
           Upload an Image (optional)
         </Typography>
-        <Button
-          variant="contained"
-          component="label"
-          sx={{
-            backgroundColor: "#90caf9",
-            color: "#1f1f1f",
-            fontWeight: "bold",
-            "&:hover": { backgroundColor: "#5a9bd4" },
-          }}
-        >
-          Choose File
-          <input
-            type="file"
-            accept="image/*"
-            hidden
-            onChange={handleImageChange}
-          />
-        </Button>
-        {image && (
-          <Typography
-            variant="body2"
-            sx={{ marginTop: 1, color: "#b0bec5" }}
+        <input
+          accept="image/*"
+          style={{ display: 'none' }}
+          id="post-image"
+          type="file"
+          onChange={handleImageChange}
+          disabled={loading}
+        />
+        <label htmlFor="post-image">
+          <Button
+            variant="contained"
+            component="span"
+            disabled={loading}
+            sx={{
+              backgroundColor: "#90caf9",
+              color: "#1f1f1f",
+              fontWeight: "bold",
+              "&:hover": { backgroundColor: "#5a9bd4" },
+            }}
           >
-            Selected: {image.name}
+            Choose File
+          </Button>
+        </label>
+        
+        {error && (
+          <Typography color="error" variant="body2" sx={{ mt: 1 }}>
+            {error}
           </Typography>
+        )}
+        
+        {imagePreview && (
+          <Box sx={{ mt: 2 }}>
+            <img
+              src={imagePreview}
+              alt="Preview"
+              style={{ maxWidth: '100%', maxHeight: '300px', borderRadius: '4px' }}
+            />
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={() => {
+                setImage(null);
+                setImagePreview(null);
+              }}
+              sx={{ mt: 1 }}
+            >
+              Remove Image
+            </Button>
+          </Box>
         )}
       </Box>
 
@@ -170,30 +238,11 @@ function PostForm() {
         </FormControl>
       )}
 
-      <FormControl fullWidth variant="filled" sx={{ marginBottom: 3 }}>
-        <InputLabel sx={{ color: "#90caf9" }}>Post To</InputLabel>
-        <Select
-          value={group}
-          onChange={(e) => setGroup(e.target.value)}
-          sx={{
-            backgroundColor: "#333",
-            color: "#fff",
-            ".MuiSelect-icon": { color: "#90caf9" },
-          }}
-        >
-          <MenuItem value="everyone">Everyone</MenuItem>
-          {["Group1", "Group2", "Group3"].map((grp) => (
-            <MenuItem key={grp} value={grp}>
-              {grp}
-            </MenuItem>
-          ))}
-        </Select>
-      </FormControl>
-
       <Button
         variant="contained"
         fullWidth
         type="submit"
+        disabled={loading || !content.trim()}
         sx={{
           backgroundColor: "#90caf9",
           color: "#1f1f1f",
@@ -201,7 +250,11 @@ function PostForm() {
           "&:hover": { backgroundColor: "#5a9bd4" },
         }}
       >
-        Submit Post
+        {loading ? (
+          <CircularProgress size={24} sx={{ color: "#1f1f1f" }} />
+        ) : (
+          "Submit Post"
+        )}
       </Button>
     </Paper>
   );
