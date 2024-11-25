@@ -82,24 +82,30 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
     setNewMessage("");
   };
 
-  // Combine and filter chats
   const combinedChats = [
     ...friends.map(f => ({ ...f, type: "private" })),
     ...groups.map(g => ({ ...g, type: "group" }))
-  ].filter(chat => {
-    const name = chat.type === "private" 
-      ? (chat.nickname || chat.name) 
-      : (chat.title || chat.name);
-    return name.toLowerCase().includes(searchQuery.toLowerCase());
-  }).sort((a, b) => {
-    // Sort by unread first, then alphabetically
-    if (unreadCounts[b.id] && !unreadCounts[a.id]) return 1;
-    if (!unreadCounts[b.id] && unreadCounts[a.id]) return -1;
-    
-    const nameA = a.type === "private" ? (a.nickname || a.name) : (a.title || a.name);
-    const nameB = b.type === "private" ? (b.nickname || b.name) : (b.title || b.name);
-    return nameA.localeCompare(nameB);
-  });
+  ]
+    .filter(chat => {
+      // Safely retrieve the name based on chat type, falling back to an empty string
+      const name = chat.type === "private" 
+        ? (chat.nickname || chat.name || "") 
+        : (chat.title || chat.name || "");
+      
+      // Ensure name is always a string to safely call toLowerCase()
+      return name.toLowerCase().includes(searchQuery.toLowerCase());
+    })
+    .sort((a, b) => {
+      // Sort by unread first, then alphabetically
+      if (unreadCounts[b.id] && !unreadCounts[a.id]) return 1;
+      if (!unreadCounts[b.id] && unreadCounts[a.id]) return -1;
+  
+      // Safely retrieve and compare names for sorting
+      const nameA = a.type === "private" ? (a.nickname || a.name || "") : (a.title || a.name || "");
+      const nameB = b.type === "private" ? (b.nickname || b.name || "") : (b.title || b.name || "");
+      return nameA.localeCompare(nameB);
+    });
+  
 
   return (
     <Box sx={{
