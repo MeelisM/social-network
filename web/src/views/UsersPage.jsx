@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import { Box, Typography, Avatar, Paper, Button } from "@mui/material";
 import { useNavigate } from "react-router-dom";
 import MainLayout from "../layouts/MainLayout";
+import { useAuth } from "../context/AuthContext";
 
 function AllUsersPage() {
     const [users, setUsers] = useState([]);
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
 
     useEffect(() => {
         async function fetchUsers() {
@@ -18,8 +20,10 @@ function AllUsersPage() {
 
                 const data = await res.json();
 
+                const filteredData = data.filter(user => user.id !== currentUser?.user_id);
+
                 const updatedUsers = await Promise.all(
-                    data.map(async (user) => {
+                    filteredData.map(async (user) => {
                         try {
                             const statusRes = await fetch(
                                 `http://localhost:8080/follow/status?user_id=${user.id}`,
@@ -53,7 +57,7 @@ function AllUsersPage() {
             }
         }
         fetchUsers();
-    }, []);
+    }, [currentUser?.user_id]);
 
     const handleFollow = async (userID) => {
         try {

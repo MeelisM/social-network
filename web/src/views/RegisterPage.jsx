@@ -65,9 +65,8 @@ function RegisterPage() {
     if (!validateForm()) {
       return;
     }
-
+  
     const requestBody = {
-      username: formData.username,
       email: formData.email,
       password: formData.password,
       first_name: formData.first_name,
@@ -77,24 +76,29 @@ function RegisterPage() {
       about_me: formData.about_me,
       is_public: formData.is_public,
     };
-
-    console.log('Request Body:', requestBody); 
-
+  
     try {
       const response = await fetch('http://localhost:8080/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(requestBody),
       });
-
-      console.log('Response Status:', response.status);
-
+  
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error Data:', errorData);
-        throw new Error(errorData.message || 'Registration failed');
+        const contentType = response.headers.get('Content-Type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          throw new Error(errorData.message || 'Registration failed');
+        } else {
+          const errorText = await response.text();
+          if (errorText.includes('UNIQUE constraint failed')) {
+            throw new Error('A user with this email already exists');
+          } else {
+            throw new Error(errorText || 'Unexpected error occurred');
+          }
+        }
       }
-
+  
       const data = await response.json();
       console.log('Registration successful:', data);
       navigate('/login'); 
@@ -102,7 +106,7 @@ function RegisterPage() {
       console.error('Error during registration:', err.message);
       setError(err.message);
     }
-  };
+  };  
 
   return (
     <Box
@@ -120,17 +124,6 @@ function RegisterPage() {
       </Typography>
       {error && <Typography color="error">{error}</Typography>}
       <form onSubmit={handleSubmit}>
-        <TextField
-          fullWidth
-          label="Username"
-          name="username"
-          variant="outlined"
-          value={formData.username}
-          onChange={handleChange}
-          error={!!errors.username}
-          helperText={errors.username}
-          sx={{ mb: 2 }}
-        />
         <TextField
           fullWidth
           label="Email"
