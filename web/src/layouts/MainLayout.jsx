@@ -123,20 +123,13 @@ function MainLayout({ children }) {
       setMessages([]);
       return;
     }
-
+  
     const chatUser = { ...user, type: user.type || 'private' };
     setSelectedUser(chatUser);
     setMessages([]);
-
-    setUnreadCounts((prev) => {
-      const newCounts = { ...prev };
-      delete newCounts[user.id];
-      const totalUnread = Object.values(newCounts).reduce((a, b) => a + b, 0);
-      setHasUnreadMessages(totalUnread > 0);
-      return newCounts;
-    });
-
+  
     if (webSocketService.isConnected) {
+      // This should properly handle both types already due to webSocketService implementation
       webSocketService.markMessagesAsRead(chatUser);
       webSocketService.getMessageHistory(chatUser);
     }

@@ -55,41 +55,53 @@ export const handleWebSocketSetup = (
     setMessages,
     setUnreadCounts,
     setHasUnreadMessages
-  ) => {
-    if (message.type === "private_message_history") {
-      handlePrivateMessageHistory(message, selectedUser, user, setMessages);
-    } else if (message.type === "group_message_history") {
-      handleGroupMessageHistory(message, selectedUser, user, setMessages);
-    } else if (message.type === "new_private_message") {
-      handleNewPrivateMessage(
-        message,
-        selectedUser,
-        user,
-        isChatSidebarOpen,
-        webSocketService,
-        setMessages,
-        setUnreadCounts,
-        setHasUnreadMessages
-      );
-    } else if (message.type === "new_group_message") {
-      handleNewGroupMessage(
-        message,
-        selectedUser,
-        user,
-        setMessages,
-        setUnreadCounts,
-        setHasUnreadMessages
-      );
-    } else if (message.type === "unread_messages") {
-      handleUnreadMessages(
-        message,
-        selectedUser,
-        isChatSidebarOpen,
-        setUnreadCounts,
-        setHasUnreadMessages
-      );
+) => {
+    console.log("Processing message:", message); 
+
+    switch(message.type) {
+        case "private_message_history":
+            handlePrivateMessageHistory(message, selectedUser, user, setMessages);
+            break;
+        case "group_message_history":
+        case "group_history": 
+            handleGroupMessageHistory(message, selectedUser, user, setMessages);
+            break;
+        case "new_private_message":
+            handleNewPrivateMessage(
+                message,
+                selectedUser,
+                user,
+                isChatSidebarOpen,
+                webSocketService,
+                setMessages,
+                setUnreadCounts,
+                setHasUnreadMessages
+            );
+            break;
+        case "new_group_message":
+        case "group_message": // Add alternate type
+            handleNewGroupMessage(
+                message,
+                selectedUser,
+                user,
+                setMessages,
+                setUnreadCounts,
+                setHasUnreadMessages
+            );
+            break;
+        case "unread_messages":
+            handleUnreadMessages(
+                message,
+                selectedUser,
+                isChatSidebarOpen,
+                setUnreadCounts,
+                setHasUnreadMessages
+            );
+            break;
+        default:
+            console.log("Unknown message type:", message.type);
     }
-  };
+};
   
   const handlePrivateMessageHistory = (message, selectedUser, user, setMessages) => {
     if (selectedUser?.type === "private") {
@@ -104,16 +116,20 @@ export const handleWebSocketSetup = (
   };
   
   const handleGroupMessageHistory = (message, selectedUser, user, setMessages) => {
-    if (selectedUser?.type === "group" && selectedUser.id === message.content.group_id) {
-      const messagesArray = Array.isArray(message.content) ? message.content : [];
-      const data = messagesArray.map((msg) => ({
-        ...msg,
-        isSent: msg.sender_id === user.user_id,
-      }));
-      data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-      setMessages(data);
+    if (selectedUser?.type === "group") {
+        const messagesArray = message.content || [];
+        const data = messagesArray.map((msg) => ({
+            ...msg,
+            isSent: msg.sender_id === user.user_id,
+            content: msg.content || msg.message || "",
+            created_at: msg.created_at || msg.timestamp || new Date().toISOString(),
+            sender_id: msg.sender_id || msg.from_id,
+            group_id: msg.group_id || selectedUser.id
+        }));
+        data.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+        setMessages(data);
     }
-  };
+};
   
   const handleNewPrivateMessage = (
     message,

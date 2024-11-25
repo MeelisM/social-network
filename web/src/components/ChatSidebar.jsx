@@ -67,17 +67,19 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
   const handleSendMessage = (e) => {
     e.preventDefault();
     if (!newMessage.trim() || !selectedUser || !webSocketService.isConnected) return;
-
+  
     webSocketService.sendMessageToRecipient(selectedUser, newMessage);
-
+  
     const newMsg = {
       content: newMessage,
       sender_id: currentUserId,
-      recipient_id: selectedUser.id,
+      ...(selectedUser.type === 'private' 
+        ? { recipient_id: selectedUser.id }
+        : { group_id: selectedUser.id }),
       created_at: new Date().toISOString(),
       isSent: true,
     };
-
+  
     setMessages(prev => [...prev, newMsg]);
     setNewMessage("");
   };
@@ -151,16 +153,26 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
               messages.map((message, index) => (
                 <Box key={index} sx={{
                   display: "flex",
-                  justifyContent: message.isSent ? "flex-end" : "flex-start",
+                  justifyContent: selectedUser.type === 'private' 
+                    ? message.isSent ? "flex-end" : "flex-start"
+                    : message.sender_id === currentUserId ? "flex-end" : "flex-start",
                   marginBottom: 2,
                 }}>
                   <Paper sx={{
                     padding: 2,
                     maxWidth: "70%",
-                    bgcolor: message.isSent ? "#90caf9" : "#333",
-                    color: message.isSent ? "#000" : "#fff",
+                    bgcolor: (selectedUser.type === 'private' ? message.isSent : message.sender_id === currentUserId) 
+                      ? "#90caf9" : "#333",
+                    color: (selectedUser.type === 'private' ? message.isSent : message.sender_id === currentUserId) 
+                      ? "#000" : "#fff",
                     borderRadius: 2,
                   }}>
+                    {/* Add sender name for group messages */}
+                    {selectedUser.type === 'group' && message.sender_id !== currentUserId && (
+                      <Typography variant="caption" sx={{ display: 'block', marginBottom: 1 }}>
+                        {message.sender_name || 'Unknown User'}
+                      </Typography>
+                    )}
                     <Typography>{message.content}</Typography>
                   </Paper>
                 </Box>
