@@ -1,12 +1,29 @@
-import { Box, Typography, Button, List, ListItem, ListItemText, Divider } from '@mui/material';
+import {
+  Box,
+  Typography,
+  Button,
+  List,
+  ListItem,
+  ListItemText,
+  Divider,
+  IconButton,
+} from '@mui/material';
 import CloseIcon from '@mui/icons-material/Close';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom'; 
 import webSocketService from '../service/websocket';
 import { useAuth } from '../context/AuthContext';
 
-function NotificationSidebar({ onClose, onHasUnreadNotificationsChange, notifications, setNotifications }) {
+function NotificationSidebar({
+  onClose,
+  onHasUnreadNotificationsChange,
+  notifications,
+  setNotifications,
+  onOpenChat, 
+}) {
   const [showSidebar, setShowSidebar] = useState(true);
   const { user } = useAuth();
+  const navigate = useNavigate(); 
 
   useEffect(() => {
     if (!user || !webSocketService.isConnected) return;
@@ -20,27 +37,18 @@ function NotificationSidebar({ onClose, onHasUnreadNotificationsChange, notifica
 
     if (diffInMinutes < 1) return 'Just now';
     if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
-    
+
     const diffInHours = Math.floor(diffInMinutes / 60);
     if (diffInHours < 24) return `${diffInHours}h ago`;
-    
+
     const diffInDays = Math.floor(diffInHours / 24);
     if (diffInDays === 1) return 'Yesterday';
     if (diffInDays < 7) return `${diffInDays}d ago`;
-    
+
     return date.toLocaleDateString();
   };
 
   const handleClose = () => {
-    // Mark all notifications as read
-    if (webSocketService.isConnected) {
-      notifications.forEach(notification => {
-        if (!notification.is_read) {
-          webSocketService.markNotificationAsRead(notification.id);
-        }
-      });
-    }
-
     setShowSidebar(false);
     if (onClose) onClose();
     if (onHasUnreadNotificationsChange) {
@@ -48,63 +56,124 @@ function NotificationSidebar({ onClose, onHasUnreadNotificationsChange, notifica
     }
   };
 
+  const handleClearAll = () => {
+    if (webSocketService.isConnected) {
+      unreadNotifications.forEach((notification) => {
+        webSocketService.markNotificationAsRead(notification.id);
+      });
+    }
+    setNotifications((prevNotifications) =>
+      prevNotifications.filter((notif) => notif.is_read)
+    );
+    if (onHasUnreadNotificationsChange) {
+      onHasUnreadNotificationsChange(false);
+    }
+  };
+
+  const handleNotificationClick = (notification) => {
+    if (webSocketService.isConnected) {
+      webSocketService.markNotificationAsRead(notification.id);
+    }
+    setNotifications((prevNotifications) =>
+      prevNotifications.filter((notif) => notif.id !== notification.id)
+    );
+
+    if (
+      notification.type === 'private_message' ||
+      notification.type === 'group_message'
+    ) {
+      if (onOpenChat) {
+        onOpenChat(); 
+      }
+    } else if (notification.type === 'follow_request') {
+      navigate('/followers');
+    } else if (notification.type === 'group_invite') {
+      navigate('/your-groups');
+    }
+
+    if (onClose) onClose();
+  };
+
   if (!showSidebar) return null;
 
+  const unreadNotifications =
+    notifications?.filter((notification) => !notification.is_read) || [];
+
   return (
-    <Box sx={{
-      width: 450,
-      bgcolor: '#1f1f1f',
-      color: 'white',
-      padding: 2,
-      position: 'fixed',
-      top: 64,
-      right: 0,
-      bottom: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.5)',
-    }}>
-      <Box sx={{
+    <Box
+      sx={{
+        width: 450,
+        bgcolor: '#1f1f1f',
+        color: 'white',
+        padding: 2,
+        position: 'fixed',
+        top: 64,
+        right: 0,
+        bottom: 0,
         display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 2,
-        paddingTop: 4,
-      }}>
+        flexDirection: 'column',
+        boxShadow: '-2px 0 5px rgba(0, 0, 0, 0.5)',
+      }}
+    >
+      <Box
+        sx={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          marginBottom: 2,
+          paddingTop: 4,
+        }}
+      >
         <Typography variant="h6" sx={{ color: '#90caf9', fontWeight: 'bold' }}>
           Notifications
         </Typography>
-        <Button
-          onClick={handleClose}
-          sx={{
-            color: 'white',
-            minWidth: 0,
-            padding: 0,
-            '&:hover': { color: '#90caf9' },
-          }}
-        >
-          <CloseIcon fontSize="large" />
-        </Button>
+        <Box>
+          {/* Clear All button */}
+          <Button
+            onClick={handleClearAll}
+            sx={{
+              color: 'white',
+              marginRight: 1,
+              '&:hover': { color: '#90caf9' },
+            }}
+          >
+            Clear All
+          </Button>
+          <IconButton
+            onClick={handleClose}
+            sx={{
+              color: 'white',
+              padding: 0,
+              '&:hover': { color: '#90caf9' },
+            }}
+          >
+            <CloseIcon fontSize="large" />
+          </IconButton>
+        </Box>
       </Box>
-      
+
       <Divider sx={{ bgcolor: '#333', marginBottom: 2 }} />
-      
-      <List sx={{
-        flexGrow: 1,
-        overflowY: 'auto',
-        padding: 0,
-      }}>
-        {notifications?.length > 0 ? (
-          notifications.map((notification) => (
+
+      <List
+        sx={{
+          flexGrow: 1,
+          overflowY: 'auto',
+          padding: 0,
+        }}
+      >
+        {unreadNotifications.length > 0 ? (
+          unreadNotifications.map((notification) => (
             <ListItem
               key={notification.id}
+              onClick={() => handleNotificationClick(notification)}
               sx={{
                 display: 'flex',
                 flexDirection: 'column',
                 alignItems: 'flex-start',
                 padding: 2,
                 borderRadius: 1,
-                bgcolor: notification.is_read ? 'transparent' : 'rgba(144, 202, 249, 0.08)',
+                bgcolor: 'rgba(144, 202, 249, 0.08)',
+                cursor: 'pointer',
                 '&:hover': {
                   bgcolor: '#333',
                 },
@@ -114,7 +183,7 @@ function NotificationSidebar({ onClose, onHasUnreadNotificationsChange, notifica
                 primary={notification.content}
                 primaryTypographyProps={{
                   variant: 'body1',
-                  color: notification.is_read ? '#b0bec5' : 'white',
+                  color: 'white',
                   marginBottom: 1,
                 }}
                 secondary={formatTimestamp(notification.created_at)}
@@ -135,27 +204,10 @@ function NotificationSidebar({ onClose, onHasUnreadNotificationsChange, notifica
               fontSize: '1.2rem',
             }}
           >
-            No notifications yet
+            No new notifications
           </Typography>
         )}
       </List>
-      
-      {notifications?.length > 0 && (
-        <>
-          <Divider sx={{ bgcolor: '#333', marginTop: 2 }} />
-          <Typography
-            variant="body1"
-            sx={{
-              color: '#b0bec5',
-              textAlign: 'center',
-              marginTop: 2,
-              fontSize: '1.2rem',
-            }}
-          >
-            You're all caught up!
-          </Typography>
-        </>
-      )}
     </Box>
   );
 }
