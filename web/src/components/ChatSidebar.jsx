@@ -17,6 +17,7 @@ import CloseIcon from "@mui/icons-material/Close";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import GroupIcon from "@mui/icons-material/Group";
 import PersonIcon from "@mui/icons-material/Person";
+import SearchIcon from "@mui/icons-material/Search";
 import { getFriendList } from "../service/friendlist";
 import { getJoinedGroups, getOwnedGroups } from "../service/group";
 import webSocketService from "../service/websocket";
@@ -27,10 +28,10 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
   const [friends, setFriends] = useState([]);
   const [groups, setGroups] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const chatBoxRef = useRef(null);
   const currentUserId = user?.user_id;
 
-  // Fetch friends and groups
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -57,7 +58,6 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
     fetchData();
   }, [currentUserId]);
 
-  // Scroll to latest message
   useEffect(() => {
     if (chatBoxRef.current) {
       chatBoxRef.current.scrollTop = chatBoxRef.current.scrollHeight;
@@ -82,11 +82,24 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
     setNewMessage("");
   };
 
-  const handleChatItemClick = (item) => {
-    if (onChatSelect) {
-      onChatSelect({ ...item, type: item.type || "private" });
-    }
-  };
+  // Combine and filter chats
+  const combinedChats = [
+    ...friends.map(f => ({ ...f, type: "private" })),
+    ...groups.map(g => ({ ...g, type: "group" }))
+  ].filter(chat => {
+    const name = chat.type === "private" 
+      ? (chat.nickname || chat.name) 
+      : (chat.title || chat.name);
+    return name.toLowerCase().includes(searchQuery.toLowerCase());
+  }).sort((a, b) => {
+    // Sort by unread first, then alphabetically
+    if (unreadCounts[b.id] && !unreadCounts[a.id]) return 1;
+    if (!unreadCounts[b.id] && unreadCounts[a.id]) return -1;
+    
+    const nameA = a.type === "private" ? (a.nickname || a.name) : (a.title || a.name);
+    const nameB = b.type === "private" ? (b.nickname || b.name) : (b.title || b.name);
+    return nameA.localeCompare(nameB);
+  });
 
   return (
     <Box sx={{
@@ -115,7 +128,8 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
-              Chat with {selectedUser.nickname || selectedUser.title || selectedUser.name}
+              {selectedUser.type === "group" ? <GroupIcon sx={{ mr: 1, verticalAlign: "middle" }} /> : <PersonIcon sx={{ mr: 1, verticalAlign: "middle" }} />}
+              {selectedUser.nickname || selectedUser.title || selectedUser.name}
             </Typography>
           </Box>
           <Box ref={chatBoxRef} sx={{
@@ -198,16 +212,35 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
               <CloseIcon fontSize="large" />
             </Button>
           </Box>
+          <TextField
+            placeholder="Search chats..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            variant="outlined"
+            InputProps={{
+              startAdornment: <SearchIcon sx={{ color: "#666", mr: 1 }} />,
+            }}
+            sx={{
+              mb: 2,
+              "& .MuiOutlinedInput-root": {
+                color: "white",
+                bgcolor: "#333",
+                "& fieldset": {
+                  borderColor: "#444",
+                },
+                "&:hover fieldset": {
+                  borderColor: "#666",
+                },
+              },
+            }}
+          />
           <Divider sx={{ bgcolor: "#333", marginBottom: 2 }} />
-          <Typography variant="subtitle1" sx={{ color: "#90caf9", marginBottom: 1 }}>
-            Friends
-          </Typography>
           <List sx={{ flexGrow: 1, overflowY: "auto", padding: 0 }}>
-            {friends.map((item) => (
+            {combinedChats.map((item) => (
               <ListItem
                 button
                 key={item.id}
-                onClick={() => handleChatItemClick({ ...item, type: "private" })}
+                onClick={() => onChatSelect(item)}
                 sx={{
                   padding: 1,
                   "&:hover": { bgcolor: "#333" },
@@ -224,46 +257,13 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
                   }}
                 >
                   <Avatar sx={{ bgcolor: "#90caf9", marginRight: 2 }}>
-                    <PersonIcon />
+                    {item.type === "group" ? <GroupIcon /> : <PersonIcon />}
                   </Avatar>
                 </Badge>
                 <ListItemText
-                  primary={item.nickname || item.name || "Unknown Friend"}
-                  primaryTypographyProps={{ variant: "body1", color: "white" }}
-                />
-              </ListItem>
-            ))}
-          </List>
-          <Typography variant="subtitle1" sx={{ color: "#90caf9", marginTop: 2, marginBottom: 1 }}>
-            Groups
-          </Typography>
-          <List sx={{ flexGrow: 1, overflowY: "auto", padding: 0 }}>
-            {groups.map((item) => (
-              <ListItem
-                button
-                key={item.id}
-                onClick={() => handleChatItemClick({ ...item, type: "group" })}
-                sx={{
-                  padding: 1,
-                  "&:hover": { bgcolor: "#333" },
-                }}
-              >
-                <Badge
-                  color="error"
-                  variant="dot"
-                  invisible={!unreadCounts[item.id]}
-                  overlap="circular"
-                  anchorOrigin={{
-                    vertical: "top",
-                    horizontal: "left",
-                  }}
-                >
-                  <Avatar sx={{ bgcolor: "#90caf9", marginRight: 2 }}>
-                    <GroupIcon />
-                  </Avatar>
-                </Badge>
-                <ListItemText
-                  primary={item.title || item.name || "Unknown Group"}
+                  primary={item.type === "private" ? 
+                    (item.nickname || item.name || "Unknown Friend") : 
+                    (item.title || item.name || "Unknown Group")}
                   primaryTypographyProps={{ variant: "body1", color: "white" }}
                 />
               </ListItem>
