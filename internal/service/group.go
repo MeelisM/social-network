@@ -671,3 +671,38 @@ func (s *GroupService) GetUserGroups(userID string) (struct {
 
 	return result, nil
 }
+
+func (s *GroupService) CreatePostComment(postID string, userID string, content string) (*model.GroupPostComment, error) {
+	// First verify the post exists and user has access
+	var groupID string
+	err := s.db.QueryRow(`
+        SELECT group_id FROM group_posts 
+        WHERE id = ?`, postID).Scan(&groupID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.verifyMembership(groupID, userID); err != nil {
+		return nil, err
+	}
+
+	comment := &model.GroupPostComment{
+		ID:        uuid.New().String(),
+		PostID:    postID,
+		UserID:    userID,
+		Content:   content,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	_, err = s.db.Exec(`
+        INSERT INTO group_post_comments (id, post_id, user_id, content, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?)`,
+		comment.ID, comment.PostID, comment.UserID, comment.Content,
+		comment.CreatedAt, comment.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+
+	return comment, nil
+}

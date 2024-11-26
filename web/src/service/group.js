@@ -20,6 +20,10 @@ export const getGroupPosts = (groupId) =>
   API.get("/groups/posts", { params: { group_id: groupId } });
 export const createGroupPost = (groupId, data) =>
   API.post("/groups/posts", { group_id: groupId, ...data });
+  export const createPostComment = (data) =>
+  API.post("/groups/posts/comments", data);
+  export const createGroupPostComment = (groupId, data) =>
+  API.post("/groups/posts/comments", { group_id: groupId, ...data });
 
 // Group events
 export const getGroupEvents = (groupId) =>
