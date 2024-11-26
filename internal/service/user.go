@@ -16,8 +16,12 @@ func NewUserService(db *sql.DB) *UserService {
 }
 
 func (s *UserService) GetAllUsers() ([]model.User, error) {
-	query := `SELECT id, COALESCE(first_name, ''), COALESCE(last_name, '') FROM users`
-
+	query := `
+        SELECT id, 
+               COALESCE(first_name, ''), 
+               COALESCE(last_name, ''),
+               COALESCE(avatar, '') as avatar 
+        FROM users`
 	rows, err := s.db.Query(query)
 	if err != nil {
 		return nil, err
@@ -28,17 +32,16 @@ func (s *UserService) GetAllUsers() ([]model.User, error) {
 	for rows.Next() {
 		var user model.User
 		var firstName, lastName string
-		// Scan user ID, first name, and last name
-		err := rows.Scan(&user.ID, &firstName, &lastName)
+		var avatar string
+		err := rows.Scan(&user.ID, &firstName, &lastName, &avatar)
 		if err != nil {
 			return nil, err
 		}
-		// Combine first and last names into a single username field
 		user.FirstName = firstName
 		user.LastName = lastName
+		user.Avatar = &avatar // Make sure your model.User has Avatar as *string
 		users = append(users, user)
 	}
-
 	return users, nil
 }
 

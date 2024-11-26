@@ -119,8 +119,12 @@ func (s *FollowerService) RespondToRequest(requestID string, userID string, acce
 
 func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, error) {
 	rows, err := s.db.Query(`
-        SELECT u.id, COALESCE(u.nickname, '') AS nickname, u.first_name, u.last_name
-        FROM follow_requests 
+        SELECT u.id, 
+               COALESCE(u.nickname, '') AS nickname, 
+               u.first_name, 
+               u.last_name,
+               COALESCE(u.avatar, '') as avatar
+        FROM follow_requests
         INNER JOIN users u ON follow_requests.follower_id = u.id
         WHERE follow_requests.following_id = ? AND follow_requests.status = 'accepted'`,
 		userID)
@@ -131,8 +135,8 @@ func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, erro
 
 	var followers []map[string]string
 	for rows.Next() {
-		var id, nickname, firstName, lastName string
-		if err := rows.Scan(&id, &nickname, &firstName, &lastName); err != nil {
+		var id, nickname, firstName, lastName, avatar string
+		if err := rows.Scan(&id, &nickname, &firstName, &lastName, &avatar); err != nil {
 			return nil, err
 		}
 		followers = append(followers, map[string]string{
@@ -140,6 +144,7 @@ func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, erro
 			"nickname":   nickname,
 			"first_name": firstName,
 			"last_name":  lastName,
+			"avatar":     avatar,
 		})
 	}
 	return followers, nil
@@ -147,7 +152,11 @@ func (s *FollowerService) GetFollowers(userID string) ([]map[string]string, erro
 
 func (s *FollowerService) GetFollowing(userID string) ([]map[string]string, error) {
 	rows, err := s.db.Query(`
-        SELECT u.id, u.nickname, u.first_name, u.last_name
+        SELECT u.id, 
+               u.nickname, 
+               u.first_name, 
+               u.last_name,
+               COALESCE(u.avatar, '') as avatar
         FROM follow_requests
         INNER JOIN users u ON follow_requests.following_id = u.id
         WHERE follow_requests.follower_id = ? AND follow_requests.status = 'accepted'`,
@@ -159,8 +168,8 @@ func (s *FollowerService) GetFollowing(userID string) ([]map[string]string, erro
 
 	var following []map[string]string
 	for rows.Next() {
-		var id, nickname, firstName, lastName string
-		if err := rows.Scan(&id, &nickname, &firstName, &lastName); err != nil {
+		var id, nickname, firstName, lastName, avatar string
+		if err := rows.Scan(&id, &nickname, &firstName, &lastName, &avatar); err != nil {
 			return nil, err
 		}
 		following = append(following, map[string]string{
@@ -168,6 +177,7 @@ func (s *FollowerService) GetFollowing(userID string) ([]map[string]string, erro
 			"nickname":   nickname,
 			"first_name": firstName,
 			"last_name":  lastName,
+			"avatar":     avatar,
 		})
 	}
 	return following, nil

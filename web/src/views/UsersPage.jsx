@@ -9,6 +9,17 @@ function AllUsersPage() {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
 
+    const getAvatarUrl = (avatarPath) => {
+        if (!avatarPath) return null;
+        return `http://localhost:8080${avatarPath}`;
+    };
+
+    const getInitials = (user) => {
+        const firstName = user.first_name || '';
+        const lastName = user.last_name || '';
+        return ((firstName?.[0] || '') + (lastName?.[0] || '')).toUpperCase() || '?';
+    };
+
     useEffect(() => {
         async function fetchUsers() {
             try {
@@ -19,7 +30,6 @@ function AllUsersPage() {
                 }
 
                 const data = await res.json();
-
                 const filteredData = data.filter(user => user.id !== currentUser?.user_id);
 
                 const updatedUsers = await Promise.all(
@@ -117,6 +127,7 @@ function AllUsersPage() {
                             onClick={() => navigate(`/profile/${user.id}`)}
                         >
                             <Avatar
+                                src={user.avatar ? getAvatarUrl(user.avatar) : null}
                                 sx={{
                                     width: 70,
                                     height: 70,
@@ -126,7 +137,7 @@ function AllUsersPage() {
                                     fontWeight: "bold",
                                 }}
                             >
-                                {user.fullName[0]?.toUpperCase() ?? "?"}
+                                {!user.avatar && getInitials(user)}
                             </Avatar>
                             <Typography
                                 variant="h6"
