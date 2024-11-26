@@ -1,6 +1,7 @@
+// src/views/Login.jsx
 import { useState } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Box, Button, Container, TextField, Typography, Paper } from '@mui/material';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
+import { Box, Button, Container, TextField, Typography, Paper, Link } from '@mui/material';
 import { useAuth } from '../context/AuthContext';
 import { useAxios } from '../utils/axiosInstance';
 
@@ -16,31 +17,31 @@ function Login() {
   const handleLogin = async () => {
     try {
       console.log('Attempting login...');
-      
+
       const response = await axios.post('/login', {
         email,
         password,
       });
-      
+
       console.log('Raw response:', response);
       console.log('Response data:', response.data);
-      
+
       // Store the complete response data
       const userData = {
         ...response.data,  // Spread all the data from the response
         user_id: response.data.id // Also maintain the user_id field for backward compatibility
       };
-      
+
       console.log('About to save user data:', userData);
-      
+
       // Save the full user data
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
-      
+
       console.log('Saved user data. Checking localStorage:', 
         JSON.parse(localStorage.getItem('user'))
       );
-      
+
       // Redirect to main page or previous page
       const from = location.state?.from?.pathname || '/';
       navigate(from);
@@ -139,6 +140,17 @@ function Login() {
           >
             Log In
           </Button>
+        </Box>
+
+        {/* Register Redirect Options */}
+        <Box sx={{ mt: 3 }}>
+          {/* Option 1: Text Link */}
+          <Typography variant="body2" color="text.secondary">
+            Don't have an account?{' '}
+            <Link component={RouterLink} to="/register" underline="hover" color="primary">
+              Register here
+            </Link>
+          </Typography>
         </Box>
       </Paper>
     </Container>
