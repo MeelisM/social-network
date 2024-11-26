@@ -29,6 +29,7 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
   const [groups, setGroups] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [userMap, setUserMap] = useState({});  // New state for user mapping
   const chatBoxRef = useRef(null);
   const currentUserId = user?.user_id;
 
@@ -41,6 +42,21 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
           getJoinedGroups(),
         ]);
         setFriends(friendList || []);
+
+        const newUserMap = {};
+        friendList?.forEach(friend => {
+          newUserMap[friend.id] = {
+            displayName: friend.displayName || `${friend.first_name || ''} ${friend.last_name || ''}`.trim() || friend.nickname,
+            firstName: friend.first_name,
+            lastName: friend.last_name
+          };
+        });
+        newUserMap[currentUserId] = {
+          displayName: user.displayName || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.nickname,
+          firstName: user.first_name,
+          lastName: user.last_name
+        };
+        setUserMap(newUserMap);
 
         const ownedGroupsData = ownedGroupsResponse?.data?.owned_groups || [];
         const joinedGroupsData = joinedGroupsResponse?.data?.member_groups || [];
@@ -56,7 +72,15 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
       }
     };
     fetchData();
-  }, [currentUserId]);
+  }, [currentUserId, user]);
+
+  // Function to get user display name
+  const getUserDisplayName = (userId) => {
+    if (!userId) return "Unknown User";
+    const userInfo = userMap[userId];
+    if (!userInfo) return "Unknown User";
+    return userInfo.displayName || `${userInfo.firstName || ''} ${userInfo.lastName || ''}`.trim() || "Unknown User";
+  };
 
   useEffect(() => {
     if (chatBoxRef.current) {
@@ -166,10 +190,10 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
                       ? "#000" : "#fff",
                     borderRadius: 2,
                   }}>
-                    {/* Add sender name for group messages */}
+                    {/* Updated sender name display for group messages */}
                     {selectedUser.type === 'group' && message.sender_id !== currentUserId && (
-                      <Typography variant="caption" sx={{ display: 'block', marginBottom: 1 }}>
-                        {message.sender_name || 'Unknown User'}
+                      <Typography variant="caption" sx={{ display: 'block', marginBottom: 1, fontWeight: 'bold' }}>
+                        {getUserDisplayName(message.sender_id)}
                       </Typography>
                     )}
                     <Typography>{message.content}</Typography>
