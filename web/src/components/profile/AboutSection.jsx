@@ -1,21 +1,25 @@
 import React from 'react';
 import { Box, Typography, Grid, Divider } from '@mui/material';
 
-const AboutSection = ({ user }) => {
-  // Add null check for user
-  if (!user) {
+const AboutSection = ({ user, canViewFullProfile }) => {
+  if (!canViewFullProfile) {
     return (
-      <Box sx={{
-        margin: "0 auto",
-        maxWidth: "900px",
-        marginTop: 3,
-        marginBottom: 4,
-        padding: 3,
-        backgroundColor: "#1f1f1f",
-        borderRadius: 3,
-      }}>
+      <Box
+        sx={{
+          margin: "0 auto",
+          maxWidth: "900px",
+          marginTop: 3,
+          marginBottom: 4,
+          padding: 3,
+          backgroundColor: "#1f1f1f",
+          borderRadius: 3,
+        }}
+      >
+        <Typography variant="h6" sx={{ color: "white", marginBottom: 3 }}>
+          Profile Information
+        </Typography>
         <Typography variant="body1" sx={{ color: "#b0bec5" }}>
-          No user information available.
+          This profile is private.
         </Typography>
       </Box>
     );
@@ -138,7 +142,7 @@ const AboutSection = ({ user }) => {
         sx={{ 
           color: "#b0bec5",
           lineHeight: 1.6,
-          whiteSpace: 'pre-wrap'  // This will preserve line breaks in the about_me text
+          whiteSpace: 'pre-wrap'  
         }}
       >
         {user?.about_me || "No about me information available."}

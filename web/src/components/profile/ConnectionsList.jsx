@@ -1,10 +1,61 @@
+// ConnectionsList.jsx
+
 import React from 'react';
 import { Grid, Paper, Typography, Avatar, Box, useTheme } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
 
-const ConnectionsList = ({ followers, following }) => {
+const ConnectionsList = ({ followers, following, canViewFullProfile }) => {
   const navigate = useNavigate();
   const theme = useTheme();
+
+  if (!canViewFullProfile) {
+    return (
+      <Grid
+        container
+        spacing={4}
+        sx={{
+          marginTop: 4,
+          maxWidth: "900px",
+          margin: "0 auto",
+        }}
+      >
+        <Grid item xs={6}>
+          <Paper
+            sx={{
+              padding: 3,
+              backgroundColor: "#1f1f1f",
+              color: "#ffffff",
+              borderRadius: 3,
+            }}
+          >
+            <Typography variant="h6" sx={{ marginBottom: 2 }}>
+              Followers
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
+              Connections are private.
+            </Typography>
+          </Paper>
+        </Grid>
+        <Grid item xs={6}>
+          <Paper
+            sx={{
+              padding: 3,
+              backgroundColor: "#1f1f1f",
+              color: "#ffffff",
+              borderRadius: 3,
+            }}
+          >
+            <Typography variant="h6" sx={{ marginBottom: 2 }}>
+              Following
+            </Typography>
+            <Typography variant="body2" sx={{ fontSize: "0.95rem" }}>
+              Connections are private.
+            </Typography>
+          </Paper>
+        </Grid>
+      </Grid>
+    );
+  }
 
   const UserCard = ({ user }) => (
     <Box

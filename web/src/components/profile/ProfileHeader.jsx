@@ -6,6 +6,7 @@ const ProfileHeader = ({
   isOwnProfile,
   isPublic,
   isFollowing,
+  canViewFullProfile,
   onToggleProfileType,
   onFollow,
   onUnfollow,
@@ -51,7 +52,7 @@ const ProfileHeader = ({
           >
             {`${user.first_name || ""} ${user.last_name || ""}`.trim() || "No Name"}
           </Typography>
-          {user.nickname && (
+          {canViewFullProfile && user.nickname && (
             <Typography
               variant="subtitle1"
               sx={{
@@ -64,7 +65,7 @@ const ProfileHeader = ({
         </Box>
       </Box>
       <Box sx={{ display: 'flex', gap: 2 }}>
-        {!isOwnProfile && (
+        {!isOwnProfile && canViewFullProfile && (
           <>
             <Button
               variant="contained"
