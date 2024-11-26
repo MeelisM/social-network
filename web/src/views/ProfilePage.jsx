@@ -1,5 +1,7 @@
+// ProfilePage.jsx
+
 import React, { useEffect, useState } from "react";
-import { useParams, useNavigate } from "react-router-dom"; 
+import { useParams, useNavigate } from "react-router-dom"; // Import useNavigate
 import { Box, Typography } from "@mui/material";
 import { getOwnedGroups, inviteToGroup } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
@@ -12,7 +14,7 @@ import GroupInviteModal from "../components/profile/GroupInviteModal";
 
 function ProfilePage() {
   const { identifier } = useParams();
-  const navigate = useNavigate(); 
+  const navigate = useNavigate(); // Initialize useNavigate
   const { user: loggedInUser } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +27,7 @@ function ProfilePage() {
   const [isPublic, setIsPublic] = useState(true);
   const [userPosts, setUserPosts] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
-  const [showRedirectMessage, setShowRedirectMessage] = useState(false); 
+  const [showRedirectMessage, setShowRedirectMessage] = useState(false); // State for redirect message
 
   const isOwnProfile = loggedInUser?.user_id === identifier;
 
@@ -90,7 +92,7 @@ function ProfilePage() {
             });
             if (visibilityRes.ok) {
               const { is_public } = await visibilityRes.json();
-              setIsPublic(is_public); 
+              setIsPublic(is_public); // This will override the previous value if different
             }
           } catch (error) {
             console.error("Error fetching profile visibility:", error);
@@ -143,6 +145,7 @@ function ProfilePage() {
       }
     };
 
+    // Only fetch data if the user is logged in
     if (loggedInUser) {
       fetchData();
     }
@@ -223,6 +226,7 @@ function ProfilePage() {
         throw new Error("Error updating profile visibility.");
       }
       
+      // Update both user and isPublic state
       setIsPublic(newVisibility);
       setUser(prev => ({
         ...prev,
