@@ -1,12 +1,33 @@
 import React from 'react';
 import { Box, Typography, Grid, Paper } from '@mui/material';
 
-const UserPosts = ({ posts }) => {
+const UserPosts = ({ posts, canViewFullProfile }) => {
+  if (!canViewFullProfile) {
+    return (
+      <Box
+        sx={{
+          margin: "0 auto",
+          maxWidth: "900px",
+          marginTop: 3,
+          marginBottom: 4,
+        }}
+      >
+        <Typography variant="h6" sx={{ color: "white", marginBottom: 2 }}>
+          Posts
+        </Typography>
+        <Typography sx={{ color: "#b0bec5" }}>
+          Posts are private.
+        </Typography>
+      </Box>
+    );
+  }
+
   return (
     <Box
       sx={{
         margin: "0 auto",
         maxWidth: "900px",
+        marginTop: 3,
         marginBottom: 4,
       }}
     >

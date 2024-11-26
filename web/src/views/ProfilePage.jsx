@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom"; 
 import { Box, Typography } from "@mui/material";
 import { getOwnedGroups, inviteToGroup } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
@@ -12,6 +12,7 @@ import GroupInviteModal from "../components/profile/GroupInviteModal";
 
 function ProfilePage() {
   const { identifier } = useParams();
+  const navigate = useNavigate(); 
   const { user: loggedInUser } = useAuth();
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -24,8 +25,25 @@ function ProfilePage() {
   const [isPublic, setIsPublic] = useState(true);
   const [userPosts, setUserPosts] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
+  const [showRedirectMessage, setShowRedirectMessage] = useState(false); 
 
   const isOwnProfile = loggedInUser?.user_id === identifier;
+
+  // Determine if the viewer can view the full profile
+  const canViewFullProfile = isPublic || isFollowing || isOwnProfile;
+
+  useEffect(() => {
+    // If the user is not logged in, show message and redirect
+    if (!loggedInUser) {
+      setShowRedirectMessage(true);
+      const timer = setTimeout(() => {
+        navigate("/login-required");
+      }, 3000); // Redirect after 3 seconds
+
+      // Cleanup the timer on component unmount
+      return () => clearTimeout(timer);
+    }
+  }, [loggedInUser, navigate]);
 
   useEffect(() => {
     const fetchPosts = async () => {
@@ -72,13 +90,14 @@ function ProfilePage() {
             });
             if (visibilityRes.ok) {
               const { is_public } = await visibilityRes.json();
-              setIsPublic(is_public); // This will override the previous value if different
+              setIsPublic(is_public); 
             }
           } catch (error) {
             console.error("Error fetching profile visibility:", error);
           }
         }
 
+        // Fetch followers
         const followersRes = await fetch(
           `http://localhost:8080/followers?user_id=${identifier}`,
           {
@@ -87,10 +106,10 @@ function ProfilePage() {
         );
         if (followersRes.ok) {
           const followersData = await followersRes.json();
-          // Add null check and ensure it's an array
+          // Ensure it's an array
           const followersArray = Array.isArray(followersData) ? followersData : [];
           setFollowers(followersArray);
-          // Add null check for loggedInUser as well
+          // Check if logged-in user is a follower
           if (loggedInUser?.user_id) {
             setIsFollowing(followersArray.some(follower => follower.id === loggedInUser.user_id));
           }
@@ -105,7 +124,7 @@ function ProfilePage() {
         );
         if (followingRes.ok) {
           const followingData = await followingRes.json();
-          setFollowing(followingData || []);
+          setFollowing(Array.isArray(followingData) ? followingData : []);
         }
 
         // Fetch owned groups
@@ -124,8 +143,10 @@ function ProfilePage() {
       }
     };
 
-    fetchData();
-  }, [identifier, isOwnProfile, loggedInUser?.user_id]);
+    if (loggedInUser) {
+      fetchData();
+    }
+  }, [identifier, isOwnProfile, loggedInUser?.user_id, loggedInUser]);
 
   const handleFollow = async () => {
     try {
@@ -202,7 +223,6 @@ function ProfilePage() {
         throw new Error("Error updating profile visibility.");
       }
       
-      // Update both user and isPublic state
       setIsPublic(newVisibility);
       setUser(prev => ({
         ...prev,
@@ -215,6 +235,21 @@ function ProfilePage() {
       alert("Failed to change profile visibility.");
     }
   };
+
+  if (showRedirectMessage) {
+    return (
+      <MainLayout>
+        <Box sx={{ textAlign: "center", padding: 4, marginTop: 8 }}>
+          <Typography variant="h5" sx={{ color: "white", marginBottom: 2 }}>
+            You need to log in to view profiles.
+          </Typography>
+          <Typography variant="body1" sx={{ color: "#b0bec5" }}>
+            Redirecting to login page...
+          </Typography>
+        </Box>
+      </MainLayout>
+    );
+  }
 
   if (loading) {
     return (
@@ -246,19 +281,21 @@ function ProfilePage() {
           isOwnProfile={isOwnProfile}
           isPublic={isPublic}
           isFollowing={isFollowing}
+          canViewFullProfile={canViewFullProfile}
           onToggleProfileType={toggleProfileType}
           onFollow={handleFollow}
           onUnfollow={handleUnfollow}
           onOpenInviteModal={() => setModalOpen(true)}
         />
         
-        <AboutSection user={user} />  {/* Changed this line */}
+        <AboutSection user={user} canViewFullProfile={canViewFullProfile} />
         
-        <UserPosts posts={userPosts} />
+        <UserPosts posts={userPosts} canViewFullProfile={canViewFullProfile} />
         
         <ConnectionsList
           followers={followers}
           following={following}
+          canViewFullProfile={canViewFullProfile}
         />
         
         <GroupInviteModal

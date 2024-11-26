@@ -179,7 +179,6 @@ func (h *WebSocketHandler) handleGetGroupHistory(conn *websocket.Conn, userID st
 func (h *WebSocketHandler) handleMarkMessagesRead(conn *websocket.Conn, userID string, msg map[string]interface{}) {
 	senderID, ok := msg["sender_id"].(string)
 	if !ok {
-		log.Println("Invalid sender ID for marking messages read")
 		return
 	}
 
