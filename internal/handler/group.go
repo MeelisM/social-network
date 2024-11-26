@@ -351,3 +351,28 @@ func (h *GroupHandler) GetUserGroups(w http.ResponseWriter, r *http.Request) {
 
 	json.NewEncoder(w).Encode(groups)
 }
+
+func (h *GroupHandler) HandlePostComments(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var input struct {
+		PostID  string `json:"post_id"`
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	userID := r.Context().Value("user_id").(string)
+	comment, err := h.GroupService.CreatePostComment(input.PostID, userID, input.Content)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	json.NewEncoder(w).Encode(comment)
+}

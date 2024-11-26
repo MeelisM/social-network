@@ -147,6 +147,7 @@ func main() {
 	router.HandleFunc("/groups/invites", authMiddleware.RequireAuth(groupHandler.GetPendingInvites))
 	router.HandleFunc("/groups/invites/respond", authMiddleware.RequireAuth(groupHandler.HandleInviteResponse))
 	router.HandleFunc("/groups/posts", authMiddleware.RequireAuth(groupHandler.HandlePosts))
+	router.HandleFunc("/groups/posts/comments", authMiddleware.RequireAuth(groupHandler.HandlePostComments))
 	router.HandleFunc("/groups/events", authMiddleware.RequireAuth(groupHandler.HandleEvents))
 	router.HandleFunc("/groups/events/respond", authMiddleware.RequireAuth(groupHandler.HandleEventResponse))
 	router.HandleFunc("/groups/events/responses", authMiddleware.RequireAuth(groupHandler.GetEventResponses))
