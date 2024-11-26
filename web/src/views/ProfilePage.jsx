@@ -1,5 +1,3 @@
-// ProfilePage.jsx
-
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom"; // Import useNavigate
 import { Box, Typography } from "@mui/material";
