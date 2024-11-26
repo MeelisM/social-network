@@ -1,4 +1,4 @@
-import { Box, CssBaseline } from '@mui/material';
+import { Box, CssBaseline, useTheme, useMediaQuery } from '@mui/material';
 import Sidebar from '../components/Sidebar';
 import ChatSidebar from '../components/ChatSidebar';
 import NotificationSidebar from '../components/NotificationSidebar';
@@ -29,14 +29,24 @@ function MainLayout({ children }) {
   const { user } = useAuth();
   const selectedUserRef = useRef(null);
 
+  const theme = useTheme();
+  const isSmallScreen = useMediaQuery(theme.breakpoints.down('sm'));
+
   useEffect(() => {
     selectedUserRef.current = selectedUser;
   }, [selectedUser]);
 
+  useEffect(() => {
+    if (isSmallScreen) {
+      setSidebarOpen(false);
+    } else {
+      setSidebarOpen(true);
+    }
+  }, [isSmallScreen]);
+
   const handleIncomingMessage = useCallback((message) => {
     if (!user) return;
-  
-  
+
     if (message.type === 'notifications') {
       setNotifications(message.content);
       if (!isNotificationSidebarOpen) {
@@ -45,66 +55,68 @@ function MainLayout({ children }) {
       }
       return;
     }
-  
-    if (!selectedUser && message.type !== "unread_messages") {
+
+    const currentSelectedUser = selectedUserRef.current;
+
+    if (!currentSelectedUser && message.type !== "unread_messages") {
       return;
     }
-  
+
     handleMessageProcessing(
       message,
       user,
-      selectedUser,
+      currentSelectedUser,
       isChatSidebarOpen,
       webSocketService,
       setMessages,
       setUnreadCounts,
       setHasUnreadMessages
     );
-  }, [user, isNotificationSidebarOpen, isChatSidebarOpen]);      
+  }, [user, isNotificationSidebarOpen, isChatSidebarOpen]);
 
   useEffect(() => {
     if (!user) return;
-  
+
     let messageInterval;
     let unreadInterval;
     let notificationInterval;
-  
+
     const connectAndInitialize = () => {
       if (!webSocketService.isConnected && !webSocketService.isConnecting) {
         const wsUrl = `${process.env.REACT_APP_WEBSOCKET_URL}/ws?token=${localStorage.getItem('token')}`;
         webSocketService.connect(wsUrl);
       }
     };
-  
+
     const pollMessages = () => {
       if (webSocketService.isConnected && selectedUser) {
         webSocketService.getMessageHistory(selectedUser);
       }
     };
-  
+
     const pollUnread = () => {
       if (webSocketService.isConnected) {
         webSocketService.getUnreadMessages();
       }
     };
-  
+
     const pollNotifications = () => {
       if (webSocketService.isConnected) {
         webSocketService.getNotifications();
       }
     };
-  
+
     connectAndInitialize();
     webSocketService.addMessageListener(handleIncomingMessage);
-  
+
     messageInterval = setInterval(pollMessages, 3000);
     unreadInterval = setInterval(pollUnread, 5000);
     notificationInterval = setInterval(pollNotifications, 5000);
-  
+
     pollMessages();
     pollUnread();
     pollNotifications();
-  
+
     return () => {
       clearInterval(messageInterval);
       clearInterval(unreadInterval);
@@ -119,21 +131,42 @@ function MainLayout({ children }) {
       setMessages([]);
       return;
     }
-  
+
     const chatUser = { ...user, type: user.type || 'private' };
     setSelectedUser(chatUser);
     setMessages([]);
-  
+
     if (webSocketService.isConnected) {
-      // This should properly handle both types already due to webSocketService implementation
       webSocketService.markMessagesAsRead(chatUser);
       webSocketService.getMessageHistory(chatUser);
+      setUnreadCounts((prev) => ({
+        ...prev,
+        [chatUser.id]: 0,
+      }));
+      setHasUnreadMessages((prev) => {
+        const totalUnread = Object.values({ ...prev, [chatUser.id]: 0 }).reduce((a, b) => a + b, 0);
+        return totalUnread > 0;
+      });
     }
   }, []);
 
   const handleToggleChat = () => {
     setChatSidebarOpen(!isChatSidebarOpen);
     setNotificationSidebarOpen(false);
+
+    if (!isChatSidebarOpen) {
+      if (selectedUser) {
+        webSocketService.markMessagesAsRead(selectedUser);
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [selectedUser.id]: 0,
+        }));
+        setHasUnreadMessages((prev) => {
+          const totalUnread = Object.values({ ...prev, [selectedUser.id]: 0 }).reduce((a, b) => a + b, 0);
+          return totalUnread > 0;
+        });
+      }
+    }
   };
 
   const handleToggleNotification = () => {
@@ -166,27 +199,47 @@ function MainLayout({ children }) {
 
       <Box sx={{ display: 'flex', flexGrow: 1 }}>
         {isSidebarOpen && (
-          <Box sx={{
-            width: drawerWidth,
-            flexShrink: 0,
-            bgcolor: '#1f1f1f',
-            color: 'white',
-            position: 'fixed',
-            left: 0,
-            top: 64,
-            bottom: 0,
-            display: 'flex',
-            flexDirection: 'column',
-          }}>
+          <Box
+            sx={{
+              width: isSmallScreen ? '80%' : drawerWidth, // Responsive width
+              flexShrink: 0,
+              bgcolor: '#1f1f1f',
+              color: 'white',
+              position: 'fixed',
+              left: 0,
+              top: 64,
+              bottom: 0,
+              display: 'flex',
+              flexDirection: 'column',
+              zIndex: theme.zIndex.drawer + 1, // Ensure it's on top
+              transition: 'width 0.3s ease', // Smooth transition
+            }}
+          >
             <Sidebar />
           </Box>
+        )}
+
+        {/* Overlay for small screens */}
+        {isSidebarOpen && isSmallScreen && (
+          <Box
+            onClick={() => setSidebarOpen(false)}
+            sx={{
+              position: 'fixed',
+              top: 64,
+              left: 0,
+              width: '100%',
+              height: '100%',
+              bgcolor: 'rgba(0, 0, 0, 0.5)',
+              zIndex: theme.zIndex.drawer, 
+            }}
+          />
         )}
 
         <Box
           component="main"
           sx={{
             flexGrow: 1,
-            marginLeft: isSidebarOpen ? `${drawerWidth}px` : 0,
+            marginLeft: isSidebarOpen ? (isSmallScreen ? '80%' : `${drawerWidth}px`) : 0,
             marginRight: isChatSidebarOpen || isNotificationSidebarOpen ? `${drawerWidth + 50}px` : '20px',
             padding: 3,
             bgcolor: '#121212',
@@ -208,6 +261,7 @@ function MainLayout({ children }) {
             right: 0,
             top: 64,
             bottom: 0,
+            zIndex: theme.zIndex.drawer + 1, 
           }}>
             <ChatSidebar
               onClose={() => setChatSidebarOpen(false)}
@@ -230,6 +284,7 @@ function MainLayout({ children }) {
             right: 0,
             top: 64,
             bottom: 0,
+            zIndex: theme.zIndex.drawer + 1, 
           }}>
             <NotificationSidebar
               onClose={() => setNotificationSidebarOpen(false)}

@@ -107,7 +107,6 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
         : (b.title || a.name || "");
       return nameA.localeCompare(nameB);
     });
-  
 
   return (
     <Box sx={{
@@ -136,11 +135,11 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
               <ArrowBackIcon />
             </IconButton>
             <Typography variant="h6" sx={{ color: "#90caf9", fontWeight: "bold" }}>
-  {selectedUser.type === "group" ? <GroupIcon sx={{ mr: 1, verticalAlign: "middle" }} /> : <PersonIcon sx={{ mr: 1, verticalAlign: "middle" }} />}
-  {selectedUser.type === "private" 
-    ? (selectedUser.displayName || `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || selectedUser.nickname || "Unknown User")
-    : (selectedUser.title || selectedUser.name || "Unknown Group")}
-</Typography>
+              {selectedUser.type === "group" ? <GroupIcon sx={{ mr: 1, verticalAlign: "middle" }} /> : <PersonIcon sx={{ mr: 1, verticalAlign: "middle" }} />}
+              {selectedUser.type === "private" 
+                ? (selectedUser.displayName || `${selectedUser.first_name || ''} ${selectedUser.last_name || ''}`.trim() || selectedUser.nickname || "Unknown User")
+                : (selectedUser.title || selectedUser.name || "Unknown Group")}
+            </Typography>
           </Box>
           <Box ref={chatBoxRef} sx={{
             flexGrow: 1,
@@ -281,11 +280,11 @@ function ChatSidebar({ onClose, onChatSelect, unreadCounts, selectedUser, messag
                   </Avatar>
                 </Badge>
                 <ListItemText
-  primary={item.type === "private" 
-    ? (item.displayName || `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.nickname || "Unknown User")
-    : (item.title || item.name || "Unknown Group")}
-  primaryTypographyProps={{ variant: "body1", color: "white" }}
-/>
+                  primary={item.type === "private" 
+                    ? (item.displayName || `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.nickname || "Unknown User")
+                    : (item.title || item.name || "Unknown Group")}
+                  primaryTypographyProps={{ variant: "body1", color: "white" }}
+                />
               </ListItem>
             ))}
           </List>

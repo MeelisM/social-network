@@ -22,7 +22,7 @@ function Sidebar() {
   const { user } = useAuth(); 
 
   return (
-    <Box sx={{ width: 240, bgcolor: "#1f1f1f", color: "white", paddingTop: 2 }}>
+    <Box sx={{ width: '100%', bgcolor: "#1f1f1f", color: "white", paddingTop: 2 }}>
       <List>
         <ListItem button onClick={() => navigate("/")}>
           <ListItemIcon>
@@ -61,7 +61,7 @@ function Sidebar() {
         For You
       </Typography>
       <List>
-      <ListItem button onClick={() => navigate("/your-groups")}>
+        <ListItem button onClick={() => navigate("/your-groups")}>
           <ListItemIcon>
             <ExploreIcon color="primary" fontSize="large" />
           </ListItemIcon>
@@ -98,7 +98,7 @@ function Sidebar() {
         Explore
       </Typography>
       <List>
-      <ListItem button onClick={() => navigate("/all-groups")}>
+        <ListItem button onClick={() => navigate("/all-groups")}>
           <ListItemIcon>
             <GroupsIcon color="primary" fontSize="large" />
           </ListItemIcon>
