@@ -32,49 +32,34 @@ function AllUsersPage() {
                 const data = await res.json();
                 const filteredData = data.filter(user => user.id !== currentUser?.user_id);
 
-                let updatedUsers;
-
-                if (currentUser) {
-                    // Authenticated: Fetch follow status
-                    updatedUsers = await Promise.all(
-                        filteredData.map(async (user) => {
-                            try {
-                                const statusRes = await fetch(
-                                    `http://localhost:8080/follow/status?user_id=${user.id}`,
-                                    {
-                                        credentials: "include",
-                                    }
-                                );
-                                if (!statusRes.ok) {
-                                    throw new Error(`Failed to fetch follow status: ${statusRes.statusText}`);
+                const updatedUsers = await Promise.all(
+                    filteredData.map(async (user) => {
+                        try {
+                            const statusRes = await fetch(
+                                `http://localhost:8080/follow/status?user_id=${user.id}`,
+                                {
+                                    credentials: "include",
                                 }
-                                const statusData = await statusRes.json();
-                                return { 
-                                    ...user, 
-                                    followStatus: statusData.status, // e.g., "not_followed", "pending", "following"
-                                    fullName: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
-                                };
-                            } catch (err) {
-                                console.error(
-                                    `Error fetching follow status for user ID: ${user.id}`,
-                                    err
-                                );
-                                return { 
-                                    ...user, 
-                                    followStatus: "error", // Handle error state
-                                    fullName: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
-                                };
-                            }
-                        })
-                    );
-                } else {
-                    // Guest: Do not fetch follow status
-                    updatedUsers = filteredData.map(user => ({
-                        ...user,
-                        followStatus: null, // Indicates no follow status available
-                        fullName: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
-                    }));
-                }
+                            );
+                            const statusData = await statusRes.json();
+                            return { 
+                                ...user, 
+                                followStatus: statusData.status,
+                                fullName: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
+                            };
+                        } catch (err) {
+                            console.error(
+                                `Error fetching follow status for user ID: ${user.id}`,
+                                err
+                            );
+                            return { 
+                                ...user, 
+                                followStatus: "error",
+                                fullName: `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Unknown User",
+                            };
+                        }
+                    })
+                );
 
                 setUsers(updatedUsers);
             } catch (err) {
@@ -85,11 +70,6 @@ function AllUsersPage() {
     }, [currentUser?.user_id]);
 
     const handleFollow = async (userID) => {
-        if (!currentUser) {
-            // Redirect to login or show a prompt
-            navigate('/login-required');
-            return;
-        }
         try {
             const res = await fetch(`http://localhost:8080/follow`, {
                 method: "POST",
@@ -99,10 +79,7 @@ function AllUsersPage() {
                 },
                 body: JSON.stringify({ user_id: userID }),
             });
-            if (!res.ok) {
-                console.error("Failed to follow user:", res.status, res.statusText);
-                return;
-            }
+            if (!res.ok) return;
 
             setUsers((prev) =>
                 prev.map((user) =>
@@ -114,34 +91,12 @@ function AllUsersPage() {
         }
     };
 
-    const handleUnfollow = async (userID) => {
-        if (!currentUser) {
-            // Redirect to login or show a prompt
-            navigate('/login-required');
-            return;
-        }
-        try {
-            const res = await fetch(`http://localhost:8080/follow`, {
-                method: "DELETE", // Assuming DELETE is used to unfollow
-                credentials: "include",
-                headers: {
-                    "Content-Type": "application/json",
-                },
-                body: JSON.stringify({ user_id: userID }),
-            });
-            if (!res.ok) {
-                console.error("Failed to unfollow user:", res.status, res.statusText);
-                return;
-            }
-
-            setUsers((prev) =>
-                prev.map((user) =>
-                    user.id === userID ? { ...user, followStatus: "not_followed" } : user
-                )
-            );
-        } catch (err) {
-            console.error("Error sending unfollow request:", err);
-        }
+    const handleUnfollow = (userID) => {
+        setUsers((prev) =>
+            prev.map((user) =>
+                user.id === userID ? { ...user, followStatus: "not_followed" } : user
+            )
+        );
     };
 
     return (
@@ -153,7 +108,7 @@ function AllUsersPage() {
                 >
                     All Users
                 </Typography>
-                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: 3 }}>
+                <Box sx={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 3 }}>
                     {users.map((user) => (
                         <Paper
                             key={user.id}
@@ -190,38 +145,29 @@ function AllUsersPage() {
                             >
                                 {user.fullName}
                             </Typography>
-                            {/* Only show follow button if user is authenticated and followStatus is not null */}
-                            {currentUser && user.followStatus !== null && (
-                                <Button
-                                    variant="contained"
-                                    sx={{ marginTop: 2 }}
-                                    color={
-                                        user.followStatus === "not_followed"
-                                            ? "primary"
-                                            : user.followStatus === "pending"
-                                            ? "warning"
-                                            : "success"
-                                    }
-                                    onClick={(e) => {
-                                        e.stopPropagation(); 
-                                        if (user.followStatus === "not_followed") {
-                                            handleFollow(user.id);
-                                        } else if (user.followStatus === "following") {
-                                            handleUnfollow(user.id);
-                                        }
-                                        // Optionally handle other statuses like "error" or "pending"
-                                    }}
-                                    disabled={user.followStatus === "pending" || user.followStatus === "error"}
-                                >
-                                    {user.followStatus === "not_followed"
-                                        ? "Follow"
+                            <Button
+                                variant="contained"
+                                sx={{ marginTop: 2 }}
+                                color={
+                                    user.followStatus === "not_followed"
+                                        ? "primary"
                                         : user.followStatus === "pending"
-                                        ? "Request Sent"
-                                        : user.followStatus === "following"
-                                        ? "Following"
-                                        : "Follow"}
-                                </Button>
-                            )}
+                                        ? "warning"
+                                        : "success"
+                                }
+                                onClick={(e) => {
+                                    e.stopPropagation(); 
+                                    user.followStatus === "not_followed"
+                                        ? handleFollow(user.id)
+                                        : handleUnfollow(user.id);
+                                }}
+                            >
+                                {user.followStatus === "not_followed"
+                                    ? "Follow"
+                                    : user.followStatus === "pending"
+                                    ? "Request Sent"
+                                    : "Following"}
+                            </Button>
                         </Paper>
                     ))}
                 </Box>
