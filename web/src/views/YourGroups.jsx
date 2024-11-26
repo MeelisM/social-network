@@ -8,8 +8,9 @@ import {
   Modal,
   TextField,
   CircularProgress,
+  Alert,
 } from "@mui/material";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom"; // Import useNavigate for redirection
 import {
   getOwnedGroups,
   createGroup,
@@ -17,8 +18,12 @@ import {
   respondToGroupJoinRequest,
 } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
+import { useAuth } from "../context/AuthContext"; // Import the Auth context
 
 const YourGroups = () => {
+  const { user, authLoading } = useAuth(); // Destructure authLoading if available
+  const navigate = useNavigate(); // Initialize navigate for redirection
+
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -26,37 +31,59 @@ const YourGroups = () => {
   const [formData, setFormData] = useState({ title: "", description: "" });
   const [inviteRequests, setInviteRequests] = useState([]);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [error, setError] = useState(null); // State to handle errors
+
+  // Authentication and Redirection Logic
+  useEffect(() => {
+    if (!authLoading) { // Ensure auth state is determined
+      if (!user?.user_id) {
+        navigate("/login-required", { replace: true }); // Redirect unauthenticated users
+      }
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
+    // Fetch owned groups
     const fetchGroups = async () => {
       try {
         const response = await getOwnedGroups();
-        setGroups(
-          Array.isArray(response?.data?.owned_groups)
-            ? response.data.owned_groups
-            : []
-        );
+        if (
+          response?.data?.owned_groups &&
+          Array.isArray(response.data.owned_groups)
+        ) {
+          setGroups(response.data.owned_groups);
+        } else {
+          setGroups([]);
+        }
       } catch (error) {
         console.error("Error fetching owned groups:", error);
+        setError("No posts found for you."); // Set a generic error message
         setGroups([]);
       } finally {
         setLoading(false);
       }
     };
 
+    // Fetch pending invite requests
     const fetchInviteRequests = async () => {
       try {
         const response = await getPendingInvites();
-        setInviteRequests(Array.isArray(response?.data) ? response.data : []);
+        if (Array.isArray(response?.data)) {
+          setInviteRequests(response.data);
+        } else {
+          setInviteRequests([]);
+        }
       } catch (error) {
         console.error("Error fetching invite requests:", error);
         setInviteRequests([]);
       }
     };
 
-    fetchGroups();
-    fetchInviteRequests();
-  }, []);
+    if (user?.user_id) { // Only fetch data if user is authenticated
+      fetchGroups();
+      fetchInviteRequests();
+    }
+  }, [user]);
 
   const handleOpenModal = () => setModalOpen(true);
   const handleCloseModal = () => setModalOpen(false);
@@ -132,6 +159,22 @@ const YourGroups = () => {
         >
           + Create New Group
         </Button>
+
+        {/* Display Error Message if Exists */}
+        {error && (
+          <Alert
+            severity="error"
+            sx={{
+              marginBottom: 4,
+              backgroundColor: "#2f1f1f",
+              color: "#ff8a80",
+            }}
+          >
+            {error}
+          </Alert>
+        )}
+
+        {/* Loading State */}
         {loading ? (
           <CircularProgress
             sx={{ color: "white", display: "block", margin: "auto" }}

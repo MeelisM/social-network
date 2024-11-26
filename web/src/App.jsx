@@ -46,7 +46,7 @@ function WebSocketInitializer() {
 
   useEffect(() => {
     if (user && !isConnectedRef.current) {
-      const websocketUrl = "ws://localhost:8080/ws"; // Replace with your server's WebSocket URL
+      const websocketUrl = "ws://localhost:8080/ws"; 
       webSocketService.connect(websocketUrl);
       isConnectedRef.current = true;
       console.log("WebSocket connected");
@@ -55,7 +55,6 @@ function WebSocketInitializer() {
       isConnectedRef.current = false;
       console.log("WebSocket disconnected");
     }
-    // Only run effect when authentication status changes
   }, [user ? user.user_id : null]);
 
   return null;
