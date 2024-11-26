@@ -41,3 +41,5 @@ Frontend is served @ [http://www.localhost:5173](http://www.localhost:5173)
 ### Authors
 
 Authors: Tabel Dubolazov, Meelis Mumm
+
+<b>Audit</b> for this project can be found [here](https://01.kood.tech/git/root/public/src/branch/master/subjects/social-network/audit).
