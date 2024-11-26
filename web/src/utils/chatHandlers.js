@@ -55,8 +55,8 @@ export const handleWebSocketSetup = (
     setMessages,
     setUnreadCounts,
     setHasUnreadMessages
-) => {
-
+  ) => {
+  
     switch(message.type) {
         case "private_message_history":
             handlePrivateMessageHistory(message, selectedUser, user, setMessages);
@@ -78,7 +78,7 @@ export const handleWebSocketSetup = (
             );
             break;
         case "new_group_message":
-        case "group_message": // Add alternate type
+        case "group_message": 
             handleNewGroupMessage(
                 message,
                 selectedUser,
@@ -99,7 +99,7 @@ export const handleWebSocketSetup = (
             break;
         default:
     }
-};
+  };
   
   const handlePrivateMessageHistory = (message, selectedUser, user, setMessages) => {
     if (selectedUser?.type === "private") {
@@ -129,62 +129,78 @@ export const handleWebSocketSetup = (
     }
 };
   
-  const handleNewPrivateMessage = (
-    message,
-    selectedUser,
-    user,
-    isChatSidebarOpen,
-    webSocketService,
-    setMessages,
-    setUnreadCounts,
-    setHasUnreadMessages
-  ) => {
-    const { sender_id, recipient_id } = message.content;
-  
-    if (selectedUser?.type === "private") {
-      const isRelevantMessage =
-        (sender_id === selectedUser.id && recipient_id === user.user_id) ||
-        (sender_id === user.user_id && recipient_id === selectedUser.id);
-  
-      if (isRelevantMessage) {
-        const newMsg = {
-          ...message.content,
-          isSent: sender_id === user.user_id,
-        };
-        setMessages((prev) => [...prev, newMsg]);
-  
-        if (isChatSidebarOpen && !newMsg.isSent && webSocketService.isConnected) {
-          webSocketService.markMessagesAsRead(selectedUser);
-        }
-      }
-    }
-  
-    if (recipient_id === user.user_id && 
-       (!selectedUser || selectedUser.id !== sender_id || !isChatSidebarOpen)) {
-      updateUnreadCounts(sender_id, setUnreadCounts, setHasUnreadMessages);
-    }
-  };
-  
-  const handleNewGroupMessage = (
-    message,
-    selectedUser,
-    user,
-    setMessages,
-    setUnreadCounts,
-    setHasUnreadMessages
-  ) => {
-    const { group_id, sender_id } = message.content;
-  
-    if (selectedUser?.type === "group" && selectedUser.id === group_id) {
+const handleNewPrivateMessage = (
+  message,
+  selectedUser,
+  user,
+  isChatSidebarOpen,
+  webSocketService,
+  setMessages,
+  setUnreadCounts,
+  setHasUnreadMessages
+) => {
+  const { sender_id, recipient_id } = message.content;
+
+  if (selectedUser?.type === "private") {
+    const isRelevantMessage =
+      (sender_id === selectedUser.id && recipient_id === user.user_id) ||
+      (sender_id === user.user_id && recipient_id === selectedUser.id);
+
+    if (isRelevantMessage) {
       const newMsg = {
         ...message.content,
         isSent: sender_id === user.user_id,
       };
       setMessages((prev) => [...prev, newMsg]);
-    } else {
-      updateUnreadCounts(group_id, setUnreadCounts, setHasUnreadMessages);
+
+      if (isChatSidebarOpen && !newMsg.isSent && webSocketService.isConnected) {
+        webSocketService.markMessagesAsRead(selectedUser);
+        setUnreadCounts((prev) => ({
+          ...prev,
+          [selectedUser.id]: 0,
+        }));
+        setHasUnreadMessages((prev) => {
+          const totalUnread = Object.values({ ...prev, [selectedUser.id]: 0 }).reduce((a, b) => a + b, 0);
+          return totalUnread > 0;
+        });
+      }
     }
-  };
+  }
+
+  if (recipient_id === user.user_id && 
+     (!selectedUser || selectedUser.id !== sender_id || !isChatSidebarOpen)) {
+    updateUnreadCounts(sender_id, setUnreadCounts, setHasUnreadMessages);
+  }
+};
+
+const handleNewGroupMessage = (
+  message,
+  selectedUser,
+  user,
+  setMessages,
+  setUnreadCounts,
+  setHasUnreadMessages
+) => {
+  const { group_id, sender_id } = message.content;
+
+  if (selectedUser?.type === "group" && selectedUser.id === group_id) {
+    const newMsg = {
+      ...message.content,
+      isSent: sender_id === user.user_id,
+    };
+    setMessages((prev) => [...prev, newMsg]);
+    setUnreadCounts((prev) => ({
+      ...prev,
+      [selectedUser.id]: 0,
+    }));
+    setHasUnreadMessages((prev) => {
+      const totalUnread = Object.values({ ...prev, [selectedUser.id]: 0 }).reduce((a, b) => a + b, 0);
+      return totalUnread > 0;
+    });
+  } else {
+    updateUnreadCounts(group_id, setUnreadCounts, setHasUnreadMessages);
+  }
+};
   
   const handleUnreadMessages = (
     message,
