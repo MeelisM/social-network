@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   Box, 
   Typography, 
@@ -15,10 +15,12 @@ import {
   DialogContent,
   DialogActions,
 } from '@mui/material';
-import { MoreVert, Delete, Edit, Image } from '@mui/icons-material';
+import { MoreVert, Delete, Edit, Image, BrokenImage } from '@mui/icons-material';
 import PostService from "../service/post";
 
 function Post({ post, onPostUpdate, onPostDelete }) {
+  const [imageError, setImageError] = useState(false);
+  const [commentImageErrors, setCommentImageErrors] = useState({});
   const [commentText, setCommentText] = useState('');
   const [commentImage, setCommentImage] = useState(null);
   const [commentImagePreview, setCommentImagePreview] = useState(null);
@@ -29,6 +31,28 @@ function Post({ post, onPostUpdate, onPostDelete }) {
   const [anchorEl, setAnchorEl] = useState(null);
   const [commentAnchorEl, setCommentAnchorEl] = useState(null);
   const [selectedComment, setSelectedComment] = useState(null);
+
+  // Image handling
+  const handleImageError = useCallback((e) => {
+    console.error('Image failed to load:', e.target.src);
+    setImageError(true);
+  }, []);
+
+  const getImageUrl = useCallback((path) => {
+    if (!path) return null;
+    const baseUrl = 'http://localhost:8080';
+    const fullUrl = path.startsWith('http') ? path : `${baseUrl}${path}`;
+    console.log('Image URL:', fullUrl);
+    return fullUrl;
+  }, []);
+
+  const handleCommentImageError = useCallback((commentId) => {
+    console.error('Comment image failed to load for comment:', commentId);
+    setCommentImageErrors(prev => ({
+      ...prev,
+      [commentId]: true
+    }));
+  }, []);
 
   // Post menu handlers
   const handleMenuOpen = (event) => setAnchorEl(event.currentTarget);
@@ -58,7 +82,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
 
   const handleDeletePost = async () => {
     try {
-      await PostService.deletePost(post.id, post.image_path);
+      await PostService.deletePost(post.id, post.imagePath);
       onPostDelete && onPostDelete();
       handleMenuClose();
     } catch (error) {
@@ -84,7 +108,11 @@ function Post({ post, onPostUpdate, onPostDelete }) {
     }
 
     setCommentImage(file);
-    setCommentImagePreview(URL.createObjectURL(file));
+    const previewUrl = URL.createObjectURL(file);
+    setCommentImagePreview(previewUrl);
+
+    // Cleanup preview URL when component unmounts
+    return () => URL.revokeObjectURL(previewUrl);
   };
 
   // Comment actions
@@ -128,13 +156,21 @@ function Post({ post, onPostUpdate, onPostDelete }) {
     if (!selectedComment) return;
 
     try {
-      await PostService.deleteComment(post.id, selectedComment.id, selectedComment.image_path);
+      await PostService.deleteComment(post.id, selectedComment.id, selectedComment.imagePath);
       handleCommentMenuClose();
       onPostUpdate && onPostUpdate();
     } catch (error) {
       console.error('Error deleting comment:', error);
     }
   };
+
+  // Debug log for post data
+  console.log('Post Data:', {
+    id: post.id,
+    content: post.content,
+    imagePath: post.imagePath,
+    comments: post.comments
+  });
 
   return (
     <Paper sx={{ padding: 3, backgroundColor: "#1f1f1f", color: "#ffffff", borderRadius: 3 }}>
@@ -190,140 +226,223 @@ function Post({ post, onPostUpdate, onPostDelete }) {
           <Typography variant="body1" sx={{ color: "#b0bec5", mb: 3 }}>
             {post.content}
           </Typography>
-          {/* Display post image if it exists */}
-          {post.image_path && (
-            <Box sx={{ mb: 3 }}>
+          
+          {post.imagePath && !imageError ? (
+            <Box sx={{ 
+              mb: 3, 
+              display: 'flex', 
+              justifyContent: 'center',
+              backgroundColor: '#2f2f2f',
+              borderRadius: 2,
+              padding: 2,
+              position: 'relative'
+            }}>
               <img
-                src={post.image_path}
-                alt="Post image"
+                src={getImageUrl(post.imagePath)}
+                alt="Post content"
+                onError={handleImageError}
                 style={{
                   maxWidth: '100%',
                   maxHeight: '500px',
                   objectFit: 'contain',
-                  borderRadius: '8px'
+                  borderRadius: '8px',
                 }}
               />
+              <Typography
+                sx={{
+                  position: 'absolute',
+                  bottom: 8,
+                  left: 8,
+                  backgroundColor: 'rgba(0,0,0,0.7)',
+                  padding: '4px 8px',
+                  borderRadius: 1,
+                  fontSize: '0.75rem',
+                  color: '#fff',
+                  display: 'none', // Set to 'block' for debugging
+                }}
+              >
+                {post.imagePath}
+              </Typography>
             </Box>
-          )}
+          ) : post.imagePath && imageError ? (
+            <Box sx={{ 
+              mb: 3,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              backgroundColor: '#2f2f2f',
+              borderRadius: 2,
+              padding: 4,
+              gap: 2
+            }}>
+              <BrokenImage sx={{ color: '#666', fontSize: 40 }} />
+              <Box>
+                <Typography color="error" variant="body2">
+                  Failed to load image
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#666' }}>
+                  {post.imagePath}
+                </Typography>
+              </Box>
+            </Box>
+          ) : null}
         </>
       )}
 
-      {/* Comments Section */}
-      <Box sx={{ mt: 4 }}>
-        <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
-          Comments
-        </Typography>
-        
-        {/* Add Comment Form */}
-        <Box component="form" onSubmit={handleAddComment} sx={{ mb: 3 }}>
-          <TextField
-            fullWidth
-            placeholder="Add a comment..."
-            value={commentText}
-            onChange={(e) => setCommentText(e.target.value)}
-            sx={{
-              backgroundColor: '#2f2f2f',
-              borderRadius: 1,
-              '& .MuiInputBase-input': { color: 'white' }
-            }}
+     {/* Comments Section */}
+<Box sx={{ mt: 4 }}>
+  <Typography variant="h6" sx={{ color: 'white', mb: 2 }}>
+    Comments
+  </Typography>
+  
+  {/* Add Comment Form */}
+  <Box component="form" onSubmit={handleAddComment} sx={{ mb: 3 }}>
+    <TextField
+      fullWidth
+      placeholder="Add a comment..."
+      value={commentText}
+      onChange={(e) => setCommentText(e.target.value)}
+      sx={{
+        backgroundColor: '#2f2f2f',
+        borderRadius: 1,
+        '& .MuiInputBase-input': { color: 'white' }
+      }}
+    />
+    <Box sx={{ mt: 1, display: 'flex', gap: 2, alignItems: 'center' }}>
+      <input
+        accept="image/*"
+        style={{ display: 'none' }}
+        id={`comment-image-${post.id}`}
+        type="file"
+        onChange={handleCommentImageChange}
+      />
+      <label htmlFor={`comment-image-${post.id}`}>
+        <IconButton component="span" sx={{ color: '#90caf9' }}>
+          <Image />
+        </IconButton>
+      </label>
+      
+      {commentImagePreview && (
+        <Box sx={{ position: 'relative' }}>
+          <img
+            src={commentImagePreview}
+            alt="Comment preview"
+            style={{ height: 40, borderRadius: 4 }}
           />
-          <Box sx={{ mt: 1, display: 'flex', gap: 2, alignItems: 'center' }}>
-            <input
-              accept="image/*"
-              style={{ display: 'none' }}
-              id={`comment-image-${post.id}`}
-              type="file"
-              onChange={handleCommentImageChange}
-            />
-            <label htmlFor={`comment-image-${post.id}`}>
-              <IconButton component="span" sx={{ color: '#90caf9' }}>
-                <Image />
-              </IconButton>
-            </label>
-            
-            {commentImagePreview && (
-              <Box sx={{ position: 'relative' }}>
-                <img
-                  src={commentImagePreview}
-                  alt="Comment preview"
-                  style={{ height: 40, borderRadius: 4 }}
-                />
-                <IconButton
-                  size="small"
-                  onClick={() => {
-                    setCommentImage(null);
-                    setCommentImagePreview(null);
-                  }}
-                  sx={{
-                    position: 'absolute',
-                    top: -10,
-                    right: -10,
-                    color: 'error.main'
-                  }}
-                >
-                  <Delete />
-                </IconButton>
-              </Box>
-            )}
-            
-            <Button 
-              type="submit" 
-              variant="contained" 
-              disabled={loading || (!commentText.trim() && !commentImage)}
-            >
-              {loading ? <CircularProgress size={24} /> : 'Comment'}
-            </Button>
-          </Box>
+          <IconButton
+            size="small"
+            onClick={() => {
+              setCommentImage(null);
+              setCommentImagePreview(null);
+            }}
+            sx={{
+              position: 'absolute',
+              top: -10,
+              right: -10,
+              color: 'error.main'
+            }}
+          >
+            <Delete />
+          </IconButton>
         </Box>
+      )}
+      
+      <Button 
+        type="submit" 
+        variant="contained" 
+        disabled={loading || (!commentText.trim() && !commentImage)}
+        sx={{ marginLeft: 'auto' }}
+      >
+        {loading ? <CircularProgress size={24} /> : 'Comment'}
+      </Button>
+    </Box>
+  </Box>
 
-        {/* Comments List */}
-        <Box sx={{ ml: 2 }}>
-          {post.comments?.map((comment) => (
-            <Box key={comment.id} sx={{ mb: 2, p: 2, backgroundColor: '#2f2f2f', borderRadius: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar
-                    src={"https://via.placeholder.com/30"}
-                    alt="Social Network User"
-                    sx={{ width: 30, height: 30 }}
-                  />
-                  <Typography variant="subtitle2" sx={{ color: 'white' }}>
-                    Social Network User
-                  </Typography>
-                </Box>
-                
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => handleCommentMenuOpen(e, comment)}
-                  sx={{ color: 'white' }}
-                >
-                  <MoreVert />
-                </IconButton>
-              </Box>
-              
-              <Typography variant="body2" sx={{ color: '#b0bec5', mt: 1, ml: 4 }}>
-                {comment.content}
+  {/* Comments List */}
+  <Box sx={{ ml: 2 }}>
+    {post.comments?.map((comment) => {
+      // Debug log for comment data
+      console.log('Full comment object:', comment);
+  console.log('Comment image path:', comment.image_path); // Check if it's image_path instead of imagePath
+  console.log('Constructed image URL:', getImageUrl(comment.image_path));
+      console.log('Comment Data:', {
+        id: comment.id,
+        content: comment.content,
+        imagePath: comment.imagePath,
+      });
+
+      return (
+        <Box key={comment.id} sx={{ mb: 2, p: 2, backgroundColor: '#2f2f2f', borderRadius: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Avatar
+                src={"https://via.placeholder.com/30"}
+                alt="Social Network User"
+                sx={{ width: 30, height: 30 }}
+              />
+              <Typography variant="subtitle2" sx={{ color: 'white' }}>
+                Social Network User
               </Typography>
-              
-              {comment.image_path && (
-                <Box
-                  component="img"
-                  src={comment.image_path}
-                  alt="Comment image"
-                  sx={{
-                    maxWidth: "300px",
-                    maxHeight: "200px",
-                    objectFit: "contain",
-                    borderRadius: 2,
-                    mt: 2,
-                    ml: 4
-                  }}
-                />
-              )}
             </Box>
-          ))}
+            
+            <IconButton 
+              size="small" 
+              onClick={(e) => handleCommentMenuOpen(e, comment)}
+              sx={{ color: 'white' }}
+            >
+              <MoreVert />
+            </IconButton>
+          </Box>
+          
+          <Typography variant="body2" sx={{ color: '#b0bec5', mt: 1, ml: 4 }}>
+            {comment.content}
+          </Typography>
+          
+          {(comment.image_path) && (
+  <Box sx={{ 
+    position: 'relative',
+    mt: 2,
+    ml: 4
+  }}>
+    {commentImageErrors[comment.id] ? (
+      <Box sx={{ 
+        display: 'flex',
+        alignItems: 'center',
+        gap: 2,
+        backgroundColor: '#2a2a2a',
+        p: 2,
+        borderRadius: 1
+      }}>
+        <BrokenImage sx={{ color: '#666', fontSize: 24 }} />
+        <Box>
+          <Typography color="error" variant="body2">
+            Failed to load image
+          </Typography>
+          <Typography variant="caption" sx={{ color: '#666' }}>
+            {comment.image_path}
+          </Typography>
         </Box>
       </Box>
+    ) : (
+      <img
+        src={getImageUrl(comment.image_path)}
+        alt="Comment content"
+        onError={() => handleCommentImageError(comment.id)}
+        style={{
+          maxWidth: "300px",
+          maxHeight: "200px",
+          objectFit: "contain",
+          borderRadius: "8px"
+        }}
+      />
+    )}
+  </Box>
+)}
+        </Box>
+      );
+    })}
+  </Box>
+</Box>
 
       {/* Post Menu */}
       <Menu
@@ -349,7 +468,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
         onClose={handleCommentMenuClose}
       >
         <MenuItem onClick={() => {
-          setEditingComment(selectedComment.content);
+          setEditingComment(selectedComment?.content);
           handleCommentMenuClose();
         }}>
           <Edit sx={{ mr: 1 }} /> Edit Comment
@@ -358,7 +477,6 @@ function Post({ post, onPostUpdate, onPostDelete }) {
           <Delete sx={{ mr: 1 }} /> Delete Comment
         </MenuItem>
       </Menu>
-
       {/* Edit Comment Dialog */}
       <Dialog open={Boolean(editingComment)} onClose={() => setEditingComment(null)}>
         <DialogTitle>Edit Comment</DialogTitle>
