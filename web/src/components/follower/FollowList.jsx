@@ -4,11 +4,16 @@ import { useNavigate } from "react-router-dom";
 
 const FollowList = ({ data, emptyMessage }) => {
   const navigate = useNavigate();
-
+  
   const getInitials = (user) => {
     const firstName = user.first_name || '';
     const lastName = user.last_name || '';
     return ((firstName?.[0] || '') + (lastName?.[0] || '')).toUpperCase() || '?';
+  };
+
+  const getAvatarUrl = (avatarPath) => {
+    if (!avatarPath) return null;
+    return `http://localhost:8080${avatarPath}`;
   };
 
   return (
@@ -31,6 +36,7 @@ const FollowList = ({ data, emptyMessage }) => {
             onClick={() => user.id && navigate(`/profile/${user.id}`)}
           >
             <Avatar
+              src={user.avatar ? getAvatarUrl(user.avatar) : null}
               sx={{
                 width: 70,
                 height: 70,
@@ -40,7 +46,7 @@ const FollowList = ({ data, emptyMessage }) => {
                 fontWeight: "bold",
               }}
             >
-              {getInitials(user)}
+              {!user.avatar && getInitials(user)}
             </Avatar>
             <Typography variant="h6" sx={{ color: "white", textAlign: "center" }}>
               {user.displayName}
