@@ -91,6 +91,10 @@ func main() {
 	router.HandleFunc("/logout", authMiddleware.RequireAuth(authHandler.Logout))
 	router.HandleFunc("/auth", authHandler.VerifySession)
 
+	// Static file server for uploads
+	fs := http.FileServer(http.Dir("."))
+	router.Handle("/uploads/", http.StripPrefix("/", fs))
+
 	// Post routes
 	router.HandleFunc("/posts", authMiddleware.RequireAuth(postHandler.CreatePost))
 	router.HandleFunc("/posts/public", authMiddleware.RequireAuth(postHandler.GetPublicPosts))
