@@ -1,29 +1,56 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Paper, Grid } from "@mui/material";
-import { Link } from "react-router-dom";
+import {
+  Box,
+  Typography,
+  Paper,
+  Grid,
+  CircularProgress,
+  Alert,
+} from "@mui/material";
+import { Link, useNavigate } from "react-router-dom"; 
 import { getJoinedGroups } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
+import { useAuth } from "../context/AuthContext"; 
 
 const JoinedGroups = () => {
-  const [groups, setGroups] = useState([]); 
+  const { user, authLoading } = useAuth(); 
+  const navigate = useNavigate(); 
+
+  const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); 
+
+  useEffect(() => {
+    if (!authLoading) { 
+      if (!user?.user_id) {
+        navigate("/login-required", { replace: true }); 
+      }
+    }
+  }, [user, authLoading, navigate]);
 
   useEffect(() => {
     const fetchGroups = async () => {
       try {
         const response = await getJoinedGroups();
         console.log("API Response for Joined Groups:", response);
-        setGroups(Array.isArray(response?.data?.member_groups) ? response.data.member_groups : []);
+        setGroups(
+          Array.isArray(response?.data?.member_groups)
+            ? response.data.member_groups
+            : []
+        );
       } catch (error) {
         console.error("Error fetching joined groups:", error);
-        setGroups([]); 
+        setError("Failed to load joined groups. Please try again later.");
+        setGroups([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchGroups();
-  }, []);
+    if (user?.user_id) { 
+      fetchGroups();
+    }
+  }, [user]);
 
   return (
     <MainLayout>
@@ -45,17 +72,26 @@ const JoinedGroups = () => {
         >
           Joined Groups
         </Typography>
-        {loading ? (
-          <Typography
-            variant="h6"
+
+        {/* Display Error Message if Exists */}
+        {error && (
+          <Alert
+            severity="error"
             sx={{
-              color: "white",
-              textAlign: "center",
-              marginTop: 4,
+              marginBottom: 4,
+              backgroundColor: "#2f1f1f",
+              color: "#ff8a80",
             }}
           >
-            Loading groups...
-          </Typography>
+            {error}
+          </Alert>
+        )}
+
+        {/* Loading State */}
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", marginTop: 4 }}>
+            <CircularProgress color="inherit" />
+          </Box>
         ) : groups.length === 0 ? (
           <Typography
             variant="h6"
@@ -82,7 +118,7 @@ const JoinedGroups = () => {
                   }}
                 >
                   <Link
-                    to={`/group/${group.id}`} 
+                    to={`/group/${group.id}`}
                     style={{
                       textDecoration: "none",
                       color: "inherit",

@@ -1,4 +1,3 @@
-// src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 
@@ -26,13 +25,10 @@ export const AuthProvider = ({ children }) => {
         console.log("Auth verification data:", response.data);
         
         if (response.status === 200) {
-          // Merge existing user data with verified data to preserve all fields
           const storedUser = JSON.parse(localStorage.getItem('user')) || {};
           const verifiedUserData = {
-            ...storedUser,           // Preserve existing fields
-            ...response.data,        // Overwrite with verified fields
-            // If you still need user_id, ensure it's correctly set
-            // user_id: response.data.id, // Uncomment if necessary
+            ...storedUser,           
+            ...response.data,        
           };
           
           console.log("Setting verified user data:", verifiedUserData);
@@ -64,7 +60,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, []);  // Empty dependency array to run once on mount
+  }, []); 
 
   return (
     <AuthContext.Provider value={{ user, setUser, loading }}>

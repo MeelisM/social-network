@@ -1,5 +1,3 @@
-// src/components/Post.jsx
-
 import React, { useState, useCallback } from 'react';
 import { 
   Box, 
@@ -19,12 +17,12 @@ import {
 } from '@mui/material';
 import { MoreVert, Delete, Edit, Image, BrokenImage } from '@mui/icons-material';
 import PostService from "../service/post";
-import { useAuth } from "../context/AuthContext"; // Import the Auth context
-import { useNavigate } from "react-router-dom"; // Import useNavigate for redirection
+import { useAuth } from "../context/AuthContext"; 
+import { useNavigate } from "react-router-dom"; 
 
 function Post({ post, onPostUpdate, onPostDelete }) {
-  const { user } = useAuth(); // Get the logged-in user from context
-  const navigate = useNavigate(); // Initialize navigate for redirection
+  const { user } = useAuth(); 
+  const navigate = useNavigate(); 
 
   const [imageError, setImageError] = useState(false);
   const [commentImageErrors, setCommentImageErrors] = useState({});
@@ -176,7 +174,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
             sx={{ width: 50, height: 50, marginRight: 2, border: "2px solid #90caf9" }}
           >
             {/* Fallback to initials if no avatar */}
-            {!post.avatar && `${post.first_name?.[0]}${post.last_name?.[0]}`}
+            {!post.avatar && `${post.first_name?.[0] || 'U'}${post.last_name?.[0] || 'S'}`}
           </Avatar>
           <Box>
             <Typography variant="h6" sx={{ color: "white", fontWeight: "bold" }}>
@@ -359,8 +357,8 @@ function Post({ post, onPostUpdate, onPostDelete }) {
 
         {/* Comments List */}
         <Box sx={{ ml: 2 }}>
-          {post.comments?.map((comment) => {
-            return (
+          {post.comments?.length > 0 ? (
+            post.comments.map((comment) => (
               <Box key={comment.id} sx={{ mb: 2, p: 2, backgroundColor: '#2f2f2f', borderRadius: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -370,7 +368,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
                       sx={{ width: 30, height: 30 }}
                     >
                       {/* Fallback to initials if no avatar */}
-                      {!comment.user_avatar && `${comment.first_name?.[0]}${comment.last_name?.[0]}`}
+                      {!comment.user_avatar && `${comment.first_name?.[0] || 'U'}${comment.last_name?.[0] || 'S'}`}
                     </Avatar>
                     <Typography variant="subtitle2" sx={{ color: 'white' }}>
                       {`${comment.first_name} ${comment.last_name}`}
@@ -434,39 +432,47 @@ function Post({ post, onPostUpdate, onPostDelete }) {
                   </Box>
                 )}
               </Box>
-            );
-          })}
+            ))
+          ) : (
+            <Typography variant="body2" sx={{ color: 'white', textAlign: 'center', mt: 2 }}>
+              No comments found for you.
+            </Typography>
+          )}
         </Box>
       </Box>
       
       {/* Post Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={() => {
-          setEditingPost(true);
-          handleMenuClose();
-        }}>
-          <Edit sx={{ mr: 1 }} /> Edit Post
-        </MenuItem>
-        <MenuItem onClick={handleDeletePost}>
-          <Delete sx={{ mr: 1 }} /> Delete Post
-        </MenuItem>
-      </Menu>
+      {user?.user_id === post.user_id && (
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleMenuClose}
+        >
+          <MenuItem onClick={() => {
+            setEditingPost(true);
+            handleMenuClose();
+          }}>
+            <Edit sx={{ mr: 1 }} /> Edit Post
+          </MenuItem>
+          <MenuItem onClick={handleDeletePost}>
+            <Delete sx={{ mr: 1 }} /> Delete Post
+          </MenuItem>
+        </Menu>
+      )}
 
       {/* Comment Menu */}
-      <Menu
-        anchorEl={commentAnchorEl}
-        open={Boolean(commentAnchorEl)}
-        onClose={handleCommentMenuClose}
-      >
-        {/* Removed Edit Comment MenuItem */}
-        <MenuItem onClick={handleDeleteComment}>
-          <Delete sx={{ mr: 1 }} /> Delete Comment
-        </MenuItem>
-      </Menu>
+      {selectedComment && (
+        <Menu
+          anchorEl={commentAnchorEl}
+          open={Boolean(commentAnchorEl)}
+          onClose={handleCommentMenuClose}
+        >
+          {/* Removed Edit Comment MenuItem */}
+          <MenuItem onClick={handleDeleteComment}>
+            <Delete sx={{ mr: 1 }} /> Delete Comment
+          </MenuItem>
+        </Menu>
+      )}
       
       {/* Edit Comment Dialog - Removed */}
     </Paper>

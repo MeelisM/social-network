@@ -1,12 +1,10 @@
-// webSocketService.js
-
 class WebSocketService {
   constructor() {
     this.socket = null;
     this.listeners = [];
     this.isConnected = false;
     this.isConnecting = false;
-    this.url = null; // Store the WebSocket URL
+    this.url = null; 
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 5;
   }
@@ -17,7 +15,7 @@ class WebSocketService {
       return;
     }
 
-    this.url = url; // Save the WebSocket URL
+    this.url = url; 
     this.isConnecting = true;
 
     this.socket = new WebSocket(url);
@@ -46,10 +44,9 @@ class WebSocketService {
       this.isConnecting = false;
       this.socket = null;
 
-      // Attempt reconnection if maximum attempts not reached
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         this.reconnectAttempts += 1;
-        const delay = Math.min(10000, this.reconnectAttempts * 2000); // Exponential backoff
+        const delay = Math.min(10000, this.reconnectAttempts * 2000); 
         setTimeout(() => {
           this.reconnect();
         }, delay);

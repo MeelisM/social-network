@@ -13,8 +13,22 @@ import {
   OutlinedInput,
   Paper,
   CircularProgress,
+  Alert,
 } from "@mui/material";
 import { useAxios } from "../utils/axiosInstance";
+import useFetchUsers from "../service/useFetchUsers"; 
+import { useAuth } from "../context/AuthContext"; 
+
+const ITEM_HEIGHT = 48;
+const ITEM_PADDING_TOP = 8;
+const MenuProps = {
+  PaperProps: {
+    style: {
+      maxHeight: ITEM_HEIGHT * 4.5 + ITEM_PADDING_TOP,
+      width: 250,
+    },
+  },
+};
 
 function PostForm() {
   const [content, setContent] = useState("");
@@ -25,19 +39,20 @@ function PostForm() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const axios = useAxios();
+  const { user } = useAuth(); 
+
+  const { users, loadingUsers, usersError } = useFetchUsers();
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
-    // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
       setError('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
       return;
     }
 
-    // Validate file size (5MB limit)
     if (file.size > 5 * 1024 * 1024) {
       setError('File size should be less than 5MB');
       return;
@@ -55,17 +70,15 @@ function PostForm() {
 
     try {
       const formData = new FormData();
-      
-      // Add the post data
+
       const postData = {
         content,
         privacy,
         viewerIDs: privacy === "almost_private" ? viewers : [],
       };
-      
+
       formData.append('postData', JSON.stringify(postData));
-      
-      // Add image if selected
+
       if (image) {
         formData.append('image', image);
       }
@@ -77,20 +90,37 @@ function PostForm() {
       });
 
       console.log("Post created successfully:", response.data);
-      
+
       // Reset form
       setContent("");
       setImage(null);
       setImagePreview(null);
       setPrivacy("public");
       setViewers([]);
-      
+
+      alert("Post created successfully!");
     } catch (err) {
       console.error("Failed to create post:", err);
       setError(err.response?.data?.message || 'Failed to create post. Please try again.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handlePrivacyChange = (e) => {
+    setPrivacy(e.target.value);
+    if (e.target.value !== "almost_private") {
+      setViewers([]); 
+    }
+  };
+
+  const handleViewersChange = (event) => {
+    const {
+      target: { value },
+    } = event;
+    setViewers(
+      typeof value === 'string' ? value.split(',') : value,
+    );
   };
 
   return (
@@ -119,6 +149,20 @@ function PostForm() {
         Create a New Post
       </Typography>
 
+      {/* Display Error Message if Exists */}
+      {error && (
+        <Alert
+          severity="error"
+          sx={{
+            marginBottom: 2,
+            backgroundColor: "#2f1f1f",
+            color: "#ff8a80",
+          }}
+        >
+          {error}
+        </Alert>
+      )}
+
       <TextField
         label="Write something..."
         multiline
@@ -127,6 +171,7 @@ function PostForm() {
         onChange={(e) => setContent(e.target.value)}
         variant="filled"
         fullWidth
+        required
         sx={{
           marginBottom: 3,
           "& .MuiFilledInput-root": {
@@ -167,13 +212,15 @@ function PostForm() {
             Choose File
           </Button>
         </label>
-        
+
+        {/* Display Image Upload Errors */}
         {error && (
           <Typography color="error" variant="body2" sx={{ mt: 1 }}>
             {error}
           </Typography>
         )}
-        
+
+        {/* Display Image Preview */}
         {imagePreview && (
           <Box sx={{ mt: 2 }}>
             <img
@@ -189,6 +236,7 @@ function PostForm() {
                 setImagePreview(null);
               }}
               sx={{ mt: 1 }}
+              disabled={loading}
             >
               Remove Image
             </Button>
@@ -200,12 +248,13 @@ function PostForm() {
         <InputLabel sx={{ color: "#90caf9" }}>Privacy</InputLabel>
         <Select
           value={privacy}
-          onChange={(e) => setPrivacy(e.target.value)}
+          onChange={handlePrivacyChange}
           sx={{
             backgroundColor: "#333",
             color: "#fff",
             ".MuiSelect-icon": { color: "#90caf9" },
           }}
+          required
         >
           <MenuItem value="public">Public</MenuItem>
           <MenuItem value="private">Private</MenuItem>
@@ -216,25 +265,42 @@ function PostForm() {
       {privacy === "almost_private" && (
         <FormControl fullWidth variant="filled" sx={{ marginBottom: 3 }}>
           <InputLabel sx={{ color: "#90caf9" }}>Select Viewers</InputLabel>
-          <Select
-            multiple
-            value={viewers}
-            onChange={(e) => setViewers(e.target.value)}
-            input={<OutlinedInput />}
-            renderValue={(selected) => selected.join(", ")}
-            sx={{
-              backgroundColor: "#333",
-              color: "#fff",
-              ".MuiSelect-icon": { color: "#90caf9" },
-            }}
-          >
-            {["User1", "User2", "User3"].map((user) => (
-              <MenuItem key={user} value={user}>
-                <Checkbox checked={viewers.indexOf(user) > -1} />
-                <ListItemText primary={user} />
-              </MenuItem>
-            ))}
-          </Select>
+          {loadingUsers ? (
+            <Box sx={{ display: "flex", justifyContent: "center", padding: 2 }}>
+              <CircularProgress color="inherit" />
+            </Box>
+          ) : usersError ? (
+            <Typography color="error" variant="body2">
+              {usersError}
+            </Typography>
+          ) : (
+            <Select
+              multiple
+              value={viewers}
+              onChange={handleViewersChange}
+              input={<OutlinedInput label="Select Viewers" />}
+              renderValue={(selected) => {
+                const selectedNames = users
+                  .filter(user => selected.includes(user.id))
+                  .map(user => user.fullName)
+                  .join(", ");
+                return selectedNames;
+              }}
+              sx={{
+                backgroundColor: "#333",
+                color: "#fff",
+                ".MuiSelect-icon": { color: "#90caf9" },
+              }}
+              MenuProps={MenuProps}
+            >
+              {users.map((user) => (
+                <MenuItem key={user.id} value={user.id}>
+                  <Checkbox checked={viewers.indexOf(user.id) > -1} />
+                  <ListItemText primary={user.fullName} />
+                </MenuItem>
+              ))}
+            </Select>
+          )}
         </FormControl>
       )}
 
@@ -242,7 +308,11 @@ function PostForm() {
         variant="contained"
         fullWidth
         type="submit"
-        disabled={loading || !content.trim()}
+        disabled={
+          loading ||
+          !content.trim() ||
+          (privacy === "almost_private" && viewers.length === 0)
+        }
         sx={{
           backgroundColor: "#90caf9",
           color: "#1f1f1f",

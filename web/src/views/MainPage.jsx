@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Box, Typography, Avatar, Paper, Grid, Alert } from "@mui/material";
+import { Box, Typography, Grid, Alert } from "@mui/material";
 import MainLayout from "../layouts/MainLayout";
 import PostService from "../service/post";
 import Post from "../components/Post"; 
@@ -39,7 +39,7 @@ function MainPage() {
         setPosts(fetchedPosts);
       } catch (error) {
         console.error("Error fetching posts:", error);
-        setError(error.message || "Failed to load posts");
+        setError(error.message || "No posts found for you");
         setPosts([]);
       } finally {
         setLoading(false);
@@ -70,16 +70,16 @@ function MainPage() {
           Feed
         </Typography>
 
-        {error && (
+        {(error || posts.length === 0) && !loading && (
           <Alert 
-            severity="error" 
+            severity="info" 
             sx={{ 
               marginBottom: 4,
               backgroundColor: "#2f1f1f",
-              color: "#ff8a80"
+              color: "#90caf9"
             }}
           >
-            {error}
+            No posts found for you.
           </Alert>
         )}
 
@@ -90,13 +90,8 @@ function MainPage() {
           >
             Loading posts...
           </Typography>
-        ) : posts.length === 0 ? (
-          <Typography
-            variant="h6"
-            sx={{ color: "white", textAlign: "center", marginTop: 4 }}
-          >
-            No posts available.
-          </Typography>
+        ) : (error || posts.length === 0) ? (
+          null
         ) : (
           <Grid container spacing={4}>
             {posts.map((post) => (
