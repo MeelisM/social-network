@@ -265,8 +265,8 @@ func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]inte
 			avatarStr = avatar.String
 		}
 
-		// Fetch comments
-		comments, err := s.getPostComments(post.ID)
+		// Fetch comments using the updated GetPostComments
+		comments, err := s.GetPostComments(post.ID, requestingUserID)
 		if err != nil {
 			return nil, err
 		}
@@ -275,15 +275,15 @@ func (s *PostService) GetPublicPosts(requestingUserID string) ([]map[string]inte
 		postWithUser := map[string]interface{}{
 			"id":         post.ID,
 			"user_id":    post.UserID,
-			"first_Name": firstNameStr,
-			"last_Name":  lastNameStr,
+			"first_name": firstNameStr, // Changed from "first_Name" to "first_name"
+			"last_name":  lastNameStr,  // Changed from "last_Name" to "last_name"
 			"avatar":     avatarStr,
 			"content":    post.Content,
-			"imagePath":  post.ImagePath,
+			"image_path": post.ImagePath, // Changed from "imagePath" to "image_path"
 			"privacy":    post.Privacy,
-			"createdAt":  post.CreatedAt,
-			"updatedAt":  post.UpdatedAt,
-			"comments":   comments,
+			"created_at": post.CreatedAt,
+			"updated_at": post.UpdatedAt,
+			"comments":   comments, // Now a slice of maps with user info
 		}
 		postsWithUserInfo = append(postsWithUserInfo, postWithUser)
 	}
@@ -361,15 +361,27 @@ func (s *PostService) GetComment(commentID string) (*model.PostComment, error) {
 	return comment, nil
 }
 
-func (s *PostService) GetPostComments(postID string, userID string) ([]model.PostComment, error) {
+func (s *PostService) GetPostComments(postID string, userID string) ([]map[string]interface{}, error) {
+	// Verify the post exists and the user has access
 	_, err := s.GetPost(postID, userID)
 	if err != nil {
 		return nil, err
 	}
 
+	// Updated SQL Query to include first_name and last_name
 	rows, err := s.db.Query(`
-        SELECT pc.id, pc.post_id, pc.user_id, pc.content, pc.image_path,
-               pc.created_at, pc.updated_at, u.nickname, u.avatar
+        SELECT 
+            pc.id, 
+            pc.post_id, 
+            pc.user_id, 
+            pc.content, 
+            pc.image_path,
+            pc.created_at, 
+            pc.updated_at, 
+            u.nickname, 
+            u.avatar,
+            u.first_name,
+            u.last_name
         FROM post_comments pc
         LEFT JOIN users u ON pc.user_id = u.id
         WHERE pc.post_id = ?
@@ -381,31 +393,86 @@ func (s *PostService) GetPostComments(postID string, userID string) ([]model.Pos
 	}
 	defer rows.Close()
 
-	var comments []model.PostComment
+	var comments []map[string]interface{}
 	for rows.Next() {
-		var comment model.PostComment
-		var nickname, avatar sql.NullString
+		var (
+			id         string
+			post_id    string
+			user_id    string
+			content    string
+			image_path sql.NullString
+			created_at time.Time
+			updated_at time.Time
+			nickname   sql.NullString
+			avatar     sql.NullString
+			firstName  sql.NullString
+			lastName   sql.NullString
+		)
+
 		err := rows.Scan(
-			&comment.ID,
-			&comment.PostID,
-			&comment.UserID,
-			&comment.Content,
-			&comment.ImagePath,
-			&comment.CreatedAt,
-			&comment.UpdatedAt,
+			&id,
+			&post_id,
+			&user_id,
+			&content,
+			&image_path,
+			&created_at,
+			&updated_at,
 			&nickname,
 			&avatar,
+			&firstName,
+			&lastName,
 		)
 		if err != nil {
 			return nil, err
 		}
 
-		comment.UserNickname = nickname.String
-		if !nickname.Valid {
-			comment.UserNickname = "Unknown User"
+		comment := make(map[string]interface{})
+		comment["id"] = id
+		comment["post_id"] = post_id
+		comment["user_id"] = user_id
+		comment["content"] = content
+		if image_path.Valid {
+			comment["image_path"] = image_path.String
+		} else {
+			comment["image_path"] = nil
 		}
-		comment.UserAvatar = avatar.String
+		comment["created_at"] = created_at
+		comment["updated_at"] = updated_at
+
+		// Handle nickname
+		if nickname.Valid {
+			comment["user_nickname"] = nickname.String
+		} else {
+			comment["user_nickname"] = "Unknown User"
+		}
+
+		// Handle avatar
+		if avatar.Valid {
+			comment["user_avatar"] = avatar.String
+		} else {
+			comment["user_avatar"] = "" // Or set to a default avatar URL
+		}
+
+		// Handle first_name
+		if firstName.Valid {
+			comment["first_name"] = firstName.String
+		} else {
+			comment["first_name"] = "Unknown"
+		}
+
+		// Handle last_name
+		if lastName.Valid {
+			comment["last_name"] = lastName.String
+		} else {
+			comment["last_name"] = "User"
+		}
+
 		comments = append(comments, comment)
+	}
+
+	// Check for errors from iterating over rows
+	if err := rows.Err(); err != nil {
+		return nil, err
 	}
 
 	return comments, nil

@@ -56,7 +56,7 @@ function FollowersPage() {
         if (!pendingRes.ok) {
           throw new Error("Failed to fetch pending follow requests");
         }
-        const pendingRequests = await pendingRes.json();
+        const pendingRequests = await pendingRes.json() || []; // Ensure it's an array
         // Transform pending requests to include displayName
         const transformedRequests = pendingRequests.map(request => ({
           ...request,

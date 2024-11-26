@@ -1,11 +1,10 @@
+// src/context/AuthContext.jsx
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-  const navigate = useNavigate();
   const [user, setUser] = useState(() => {
     const storedUser = localStorage.getItem('user');
     console.log("Initial stored user data:", storedUser);
@@ -27,10 +26,13 @@ export const AuthProvider = ({ children }) => {
         console.log("Auth verification data:", response.data);
         
         if (response.status === 200) {
-          // Preserve the complete user data
+          // Merge existing user data with verified data to preserve all fields
+          const storedUser = JSON.parse(localStorage.getItem('user')) || {};
           const verifiedUserData = {
-            ...response.data,
-            user_id: response.data.id
+            ...storedUser,           // Preserve existing fields
+            ...response.data,        // Overwrite with verified fields
+            // If you still need user_id, ensure it's correctly set
+            // user_id: response.data.id, // Uncomment if necessary
           };
           
           console.log("Setting verified user data:", verifiedUserData);
@@ -47,7 +49,9 @@ export const AuthProvider = ({ children }) => {
         }
       } catch (error) {
         console.error("Verification error details:", error);
-        console.error("Error response:", error.response);
+        if (error.response) {
+          console.error("Error response:", error.response);
+        }
         setUser(null);
         localStorage.removeItem('user');
       } finally {
@@ -60,7 +64,7 @@ export const AuthProvider = ({ children }) => {
     } else {
       setLoading(false);
     }
-  }, []);  // Remove user from dependency array to prevent loops
+  }, []);  // Empty dependency array to run once on mount
 
   return (
     <AuthContext.Provider value={{ user, setUser, loading }}>
