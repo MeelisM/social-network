@@ -175,27 +175,30 @@ function Post({ post, onPostUpdate, onPostDelete }) {
   return (
     <Paper sx={{ padding: 3, backgroundColor: "#1f1f1f", color: "#ffffff", borderRadius: 3 }}>
       {/* Post Header */}
-      <Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
-        <Box sx={{ display: "flex", alignItems: "center" }}>
-          <Avatar
-            src={post.avatar !== "null" && post.avatar !== "" ? post.avatar : "https://via.placeholder.com/50"}
-            alt={`${post.first_Name} ${post.last_Name}`}
-            sx={{ width: 50, height: 50, marginRight: 2, border: "2px solid #90caf9" }}
-          />
-          <Box>
-            <Typography variant="h6" sx={{ color: "white", fontWeight: "bold" }}>
-              {`${post.first_Name} ${post.last_Name}`}
-            </Typography>
-            <Typography variant="subtitle2" sx={{ color: "#90caf9" }}>
-              {new Date(post.createdAt).toLocaleDateString()}
-            </Typography>
-          </Box>
-        </Box>
-        
-        <IconButton onClick={handleMenuOpen} sx={{ color: 'white' }}>
-          <MoreVert />
-        </IconButton>
-      </Box>
+<Box sx={{ display: "flex", alignItems: "center", justifyContent: "space-between", mb: 3 }}>
+  <Box sx={{ display: "flex", alignItems: "center" }}>
+    <Avatar
+      src={post.avatar ? getImageUrl(post.avatar) : null}
+      alt={`${post.first_Name} ${post.last_Name}`}
+      sx={{ width: 50, height: 50, marginRight: 2, border: "2px solid #90caf9" }}
+    >
+      {/* Fallback to initials if no avatar */}
+      {!post.avatar && `${post.first_Name?.[0]}${post.last_Name?.[0]}`}
+    </Avatar>
+    <Box>
+      <Typography variant="h6" sx={{ color: "white", fontWeight: "bold" }}>
+        {`${post.first_Name} ${post.last_Name}`}
+      </Typography>
+      <Typography variant="subtitle2" sx={{ color: "#90caf9" }}>
+        {new Date(post.createdAt).toLocaleDateString()}
+      </Typography>
+    </Box>
+  </Box>
+  
+  <IconButton onClick={handleMenuOpen} sx={{ color: 'white' }}>
+    <MoreVert />
+  </IconButton>
+</Box>
 
       {/* Post Content */}
       {editingPost ? (
@@ -361,29 +364,22 @@ function Post({ post, onPostUpdate, onPostDelete }) {
   {/* Comments List */}
   <Box sx={{ ml: 2 }}>
     {post.comments?.map((comment) => {
-      // Debug log for comment data
-      console.log('Full comment object:', comment);
-  console.log('Comment image path:', comment.image_path); // Check if it's image_path instead of imagePath
-  console.log('Constructed image URL:', getImageUrl(comment.image_path));
-      console.log('Comment Data:', {
-        id: comment.id,
-        content: comment.content,
-        imagePath: comment.imagePath,
-      });
-
       return (
         <Box key={comment.id} sx={{ mb: 2, p: 2, backgroundColor: '#2f2f2f', borderRadius: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Avatar
-                src={"https://via.placeholder.com/30"}
-                alt="Social Network User"
-                sx={{ width: 30, height: 30 }}
-              />
-              <Typography variant="subtitle2" sx={{ color: 'white' }}>
-                Social Network User
-              </Typography>
-            </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Avatar
+              src={comment.avatar ? getImageUrl(comment.avatar) : null}
+              alt={`${comment.first_Name} ${comment.last_Name}`}
+              sx={{ width: 30, height: 30 }}
+            >
+              {/* Fallback to initials if no avatar */}
+              {!comment.avatar && `${comment.first_Name?.[0]}${comment.last_Name?.[0]}`}
+            </Avatar>
+            <Typography variant="subtitle2" sx={{ color: 'white' }}>
+              {`${comment.first_Name} ${comment.last_Name}`}
+            </Typography>
+          </Box>
             
             <IconButton 
               size="small" 

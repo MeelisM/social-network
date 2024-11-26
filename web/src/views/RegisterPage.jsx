@@ -1,5 +1,15 @@
 import React, { useState } from 'react';
-import { Box, TextField, Button, Typography, Switch, FormControlLabel } from '@mui/material';
+import { 
+  Box, 
+  TextField, 
+  Button, 
+  Typography, 
+  Switch, 
+  FormControlLabel,
+  Avatar,
+  IconButton
+} from '@mui/material';
+import { PhotoCamera } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 function RegisterPage() {
@@ -13,6 +23,8 @@ function RegisterPage() {
     about_me: '',
     is_public: false,
   });
+  const [avatar, setAvatar] = useState(null);
+  const [avatarPreview, setAvatarPreview] = useState(null);
   const [errors, setErrors] = useState({});
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -60,13 +72,41 @@ function RegisterPage() {
     setErrors({ ...errors, [name]: null }); 
   };
 
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Avatar file size should be less than 5MB');
+      return;
+    }
+
+    // Validate file type
+    const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    if (!validTypes.includes(file.type)) {
+      setError('Please upload a valid image file (JPEG, PNG, GIF, or WebP)');
+      return;
+    }
+
+    setAvatar(file);
+    const previewUrl = URL.createObjectURL(file);
+    setAvatarPreview(previewUrl);
+
+    // Cleanup preview URL when component unmounts
+    return () => URL.revokeObjectURL(previewUrl);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) {
       return;
     }
-  
-    const requestBody = {
+
+    const formDataToSend = new FormData();
+    
+    // Add user data as JSON string
+    const userData = {
       email: formData.email,
       password: formData.password,
       first_name: formData.first_name,
@@ -76,12 +116,18 @@ function RegisterPage() {
       about_me: formData.about_me,
       is_public: formData.is_public,
     };
+    
+    formDataToSend.append('userData', JSON.stringify(userData));
+    
+    // Add avatar if selected
+    if (avatar) {
+      formDataToSend.append('avatar', avatar);
+    }
   
     try {
       const response = await fetch('http://localhost:8080/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(requestBody),
+        body: formDataToSend,
       });
   
       if (!response.ok) {
@@ -122,7 +168,46 @@ function RegisterPage() {
       <Typography variant="h4" sx={{ mb: 3 }}>
         Register
       </Typography>
-      {error && <Typography color="error">{error}</Typography>}
+
+      {/* Avatar Upload */}
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 3 }}>
+        <Box sx={{ position: 'relative' }}>
+          <Avatar
+            src={avatarPreview}
+            sx={{ 
+              width: 100, 
+              height: 100,
+              bgcolor: '#2f2f2f',
+              border: '2px solid #90caf9'
+            }}
+          />
+          <input
+            accept="image/*"
+            style={{ display: 'none' }}
+            id="avatar-upload"
+            type="file"
+            onChange={handleAvatarChange}
+          />
+          <label htmlFor="avatar-upload">
+            <IconButton
+              component="span"
+              sx={{
+                position: 'absolute',
+                bottom: -10,
+                right: -10,
+                bgcolor: '#90caf9',
+                '&:hover': { bgcolor: '#64b5f6' },
+                color: 'white'
+              }}
+            >
+              <PhotoCamera />
+            </IconButton>
+          </label>
+        </Box>
+      </Box>
+
+      {error && <Typography color="error" sx={{ mb: 2 }}>{error}</Typography>}
+      
       <form onSubmit={handleSubmit}>
         <TextField
           fullWidth
@@ -133,7 +218,23 @@ function RegisterPage() {
           onChange={handleChange}
           error={!!errors.email}
           helperText={errors.email}
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <TextField
           fullWidth
@@ -145,7 +246,23 @@ function RegisterPage() {
           onChange={handleChange}
           error={!!errors.password}
           helperText={errors.password}
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <TextField
           fullWidth
@@ -156,7 +273,23 @@ function RegisterPage() {
           onChange={handleChange}
           error={!!errors.first_name}
           helperText={errors.first_name}
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <TextField
           fullWidth
@@ -167,7 +300,23 @@ function RegisterPage() {
           onChange={handleChange}
           error={!!errors.last_name}
           helperText={errors.last_name}
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <TextField
           fullWidth
@@ -178,7 +327,23 @@ function RegisterPage() {
           onChange={handleChange}
           error={!!errors.date_of_birth}
           helperText={errors.date_of_birth}
-          sx={{ mb: 3 }}
+          sx={{ 
+            mb: 3,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <TextField
           fullWidth
@@ -187,7 +352,23 @@ function RegisterPage() {
           variant="outlined"
           value={formData.nickname}
           onChange={handleChange}
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <TextField
           fullWidth
@@ -198,7 +379,23 @@ function RegisterPage() {
           variant="outlined"
           value={formData.about_me}
           onChange={handleChange}
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.23)',
+              },
+              '&:hover fieldset': {
+                borderColor: 'rgba(255, 255, 255, 0.5)',
+              },
+            },
+            '& .MuiInputBase-input': {
+              color: 'white',
+            },
+            '& .MuiInputLabel-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+            },
+          }}
         />
         <FormControlLabel
           control={
@@ -206,12 +403,34 @@ function RegisterPage() {
               name="is_public"
               checked={formData.is_public}
               onChange={handleChange}
+              sx={{
+                '& .MuiSwitch-switchBase.Mui-checked': {
+                  color: '#90caf9',
+                },
+                '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                  backgroundColor: '#64b5f6',
+                },
+              }}
             />
           }
           label="Public Profile"
-          sx={{ mb: 2 }}
+          sx={{ 
+            mb: 2,
+            color: 'rgba(255, 255, 255, 0.7)',
+          }}
         />
-        <Button fullWidth variant="contained" color="primary" type="submit">
+        <Button 
+          fullWidth 
+          variant="contained" 
+          color="primary" 
+          type="submit"
+          sx={{
+            bgcolor: '#90caf9',
+            '&:hover': {
+              bgcolor: '#64b5f6',
+            },
+          }}
+        >
           Register
         </Button>
       </form>

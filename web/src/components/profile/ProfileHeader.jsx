@@ -1,16 +1,21 @@
 import React from 'react';
 import { Box, Typography, Avatar, Button } from '@mui/material';
 
-const ProfileHeader = ({ 
-  user, 
-  isOwnProfile, 
-  isPublic, 
+const ProfileHeader = ({
+  user,
+  isOwnProfile,
+  isPublic,
   isFollowing,
-  onToggleProfileType, 
-  onFollow, 
+  onToggleProfileType,
+  onFollow,
   onUnfollow,
-  onOpenInviteModal 
+  onOpenInviteModal
 }) => {
+  const getAvatarUrl = (avatarPath) => {
+    if (!avatarPath) return null;
+    return `http://localhost:8080${avatarPath}`;
+  };
+
   return (
     <Box
       sx={{
@@ -24,6 +29,7 @@ const ProfileHeader = ({
     >
       <Box sx={{ display: "flex", alignItems: "center", gap: 3 }}>
         <Avatar
+          src={getAvatarUrl(user.avatar)}
           sx={{
             width: 70,
             height: 70,
