@@ -5,9 +5,9 @@ Backend is built with Golang and frontend is built with React.
 
 ## Prerequisites
 
-[Install Go](https://go.dev)
-[Install Node.js](https://nodejs.org/en/)
-[Install Docker](https://www.docker.com)
+[Install Go](https://go.dev)<b>
+[Install Node.js](https://nodejs.org/en/)<b>
+[Install Docker](https://www.docker.com)<b>
 
 ## Project installation
 
@@ -35,7 +35,7 @@ go run cmd/server/main.go
 cd web && npm install && npm run dev
 ```
 
-Backend is served @ [http://www.localhost:8080](http://www.localhost:8080)
+Backend is served @ [http://www.localhost:8080](http://www.localhost:8080)<b>
 Frontend is served @ [http://www.localhost:5173](http://www.localhost:5173)
 
 ### Authors
