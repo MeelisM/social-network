@@ -10,7 +10,7 @@ import {
   CircularProgress,
   Alert,
 } from "@mui/material";
-import { Link, useNavigate } from "react-router-dom"; // Import useNavigate for redirection
+import { Link, useNavigate } from "react-router-dom";
 import {
   getOwnedGroups,
   createGroup,
@@ -18,11 +18,11 @@ import {
   respondToGroupJoinRequest,
 } from "../service/group";
 import MainLayout from "../layouts/MainLayout";
-import { useAuth } from "../context/AuthContext"; // Import the Auth context
+import { useAuth } from "../context/AuthContext"; 
 
 const YourGroups = () => {
-  const { user, authLoading } = useAuth(); // Destructure authLoading if available
-  const navigate = useNavigate(); // Initialize navigate for redirection
+  const { user, authLoading } = useAuth(); 
+  const navigate = useNavigate(); 
 
   const [groups, setGroups] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,13 +31,12 @@ const YourGroups = () => {
   const [formData, setFormData] = useState({ title: "", description: "" });
   const [inviteRequests, setInviteRequests] = useState([]);
   const [inviteLoading, setInviteLoading] = useState(false);
-  const [error, setError] = useState(null); // State to handle errors
+  const [error, setError] = useState(null); 
 
-  // Authentication and Redirection Logic
   useEffect(() => {
-    if (!authLoading) { // Ensure auth state is determined
+    if (!authLoading) { 
       if (!user?.user_id) {
-        navigate("/login-required", { replace: true }); // Redirect unauthenticated users
+        navigate("/login-required", { replace: true }); 
       }
     }
   }, [user, authLoading, navigate]);
@@ -57,7 +56,7 @@ const YourGroups = () => {
         }
       } catch (error) {
         console.error("Error fetching owned groups:", error);
-        setError("No posts found for you."); // Set a generic error message
+        setError("No posts found for you."); 
         setGroups([]);
       } finally {
         setLoading(false);
@@ -117,7 +116,7 @@ const YourGroups = () => {
   const handleInviteResponse = async (groupId, accept) => {
     setInviteLoading(true);
     try {
-      await respondToGroupJoinRequest(groupId, null, accept); // Pass `accept` to indicate the user's choice
+      await respondToGroupJoinRequest(groupId, null, accept); 
       setInviteRequests((prev) => prev.filter((invite) => invite.id !== groupId));
     } catch (error) {
       console.error("Error responding to invite:", error);
@@ -281,14 +280,14 @@ const YourGroups = () => {
                   <Button
                     variant="contained"
                     sx={{ marginRight: 2 }}
-                    onClick={() => handleInviteResponse(invite.id, true)} // Accept invite
+                    onClick={() => handleInviteResponse(invite.id, true)} 
                     disabled={inviteLoading}
                   >
                     Accept
                   </Button>
                   <Button
                     variant="outlined"
-                    onClick={() => handleInviteResponse(invite.id, false)} // Decline invite
+                    onClick={() => handleInviteResponse(invite.id, false)} 
                     disabled={inviteLoading}
                   >
                     Decline

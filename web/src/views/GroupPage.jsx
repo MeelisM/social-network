@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Box, Typography, CircularProgress } from "@mui/material";
+import { Box, Typography, CircularProgress, Alert } from "@mui/material";
 import {
   getGroupDetails,
   getGroupPosts,
@@ -19,6 +19,7 @@ const GroupPage = () => {
   const [posts, setPosts] = useState([]);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null); 
 
   useEffect(() => {
     const fetchGroupData = async () => {
@@ -36,6 +37,7 @@ const GroupPage = () => {
         setMembers(membersResponse.data || []); 
       } catch (error) {
         console.error("Error fetching group data:", error);
+        setError(error.response?.data?.message || "Failed to fetch group data.");
       } finally {
         setLoading(false);
       }
@@ -47,10 +49,38 @@ const GroupPage = () => {
   if (loading) {
     return (
       <MainLayout>
-        <CircularProgress sx={{ color: "white", display: "block", margin: "auto" }} />
+        <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "80vh" }}>
+          <CircularProgress sx={{ color: "white" }} />
+        </Box>
       </MainLayout>
     );
   }
+
+  if (error) {
+    return (
+      <MainLayout>
+        <Box sx={{ textAlign: "center", padding: 4 }}>
+          <Alert severity="error" sx={{ backgroundColor: "#2f1f1f", color: "#ff8a80" }}>
+            {error}
+          </Alert>
+        </Box>
+      </MainLayout>
+    );
+  }
+
+  if (!groupDetails) {
+    return (
+      <MainLayout>
+        <Box sx={{ textAlign: "center", padding: 4, marginTop: 8 }}>
+          <Typography variant="h5" color="error">
+            Group not found!
+          </Typography>
+        </Box>
+      </MainLayout>
+    );
+  }
+
+  console.log("Group Details:", groupDetails); 
 
   return (
     <MainLayout>
@@ -62,16 +92,6 @@ const GroupPage = () => {
           color: "white",
         }}
       >
-        {/* Group Header */}
-        <Typography
-          variant="h4"
-          sx={{ fontWeight: "bold", marginBottom: 4 }}
-        >
-          {groupDetails?.title || "Group Title"}
-        </Typography>
-        <Typography variant="body1" sx={{ marginBottom: 6 }}>
-          {groupDetails?.description || "No description available."}
-        </Typography>
 
         {/* Members Section */}
         <Member members={members} /> {/* Use Member Component */}

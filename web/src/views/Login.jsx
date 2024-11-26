@@ -1,4 +1,3 @@
-// src/views/Login.jsx
 import { useState } from 'react';
 import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Container, TextField, Typography, Paper, Link } from '@mui/material';
@@ -26,15 +25,13 @@ function Login() {
       console.log('Raw response:', response);
       console.log('Response data:', response.data);
 
-      // Store the complete response data
       const userData = {
-        ...response.data,  // Spread all the data from the response
-        user_id: response.data.id // Also maintain the user_id field for backward compatibility
+        ...response.data,  
+        user_id: response.data.id 
       };
 
       console.log('About to save user data:', userData);
 
-      // Save the full user data
       setUser(userData);
       localStorage.setItem('user', JSON.stringify(userData));
 
@@ -42,7 +39,6 @@ function Login() {
         JSON.parse(localStorage.getItem('user'))
       );
 
-      // Redirect to main page or previous page
       const from = location.state?.from?.pathname || '/';
       navigate(from);
     } catch (err) {

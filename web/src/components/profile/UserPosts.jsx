@@ -49,11 +49,19 @@ const UserPosts = ({ posts, canViewFullProfile }) => {
                 <Typography variant="body1" sx={{ color: "#b0bec5" }}>
                   {post.content}
                 </Typography>
+                {/* Display post date */}
                 <Typography
                   variant="caption"
                   sx={{ color: "#808080", display: "block", marginTop: 1 }}
                 >
-                  {new Date(post.created_at).toLocaleDateString()}
+                  {post.createdAt && !isNaN(new Date(post.createdAt)) ? (
+                    new Date(post.createdAt).toLocaleString('en-US', {
+                      dateStyle: 'medium', 
+                      timeStyle: 'short', 
+                    })
+                  ) : (
+                    "Unknown Date"
+                  )}
                 </Typography>
               </Paper>
             </Grid>

@@ -6,7 +6,6 @@ import PleaseLoginOrRegister from "../components/utils/PleaseLoginOrRegister";
 import FollowRequests from "../components/follower/FollowRequests";
 import FollowList from "../components/follower/FollowList";
 
-// Helper function to format full name
 const formatFullName = (user) => {
   if (!user) return "";
   return `${user.first_name} ${user.last_name}`.trim() || user.nickname || "Unknown User";
@@ -31,7 +30,6 @@ function FollowersPage() {
         throw new Error(`Error fetching data from ${url}: ${res.statusText}`);
       }
       const data = await res.json();
-      // Transform the data to include displayName
       const transformedData = (data || []).map(user => ({
         ...user,
         displayName: formatFullName(user)
