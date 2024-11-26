@@ -18,7 +18,7 @@ const useFetchUsers = () => {
 
       try {
         const response = await axios.get("/users");
-
+        // Assuming response.data is an array of user objects
         const filteredUsers = response.data.filter(u => u.id !== user.user_id);
 
         const updatedUsers = filteredUsers.map(u => ({

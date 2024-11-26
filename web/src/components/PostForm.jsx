@@ -14,10 +14,11 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  Snackbar, 
 } from "@mui/material";
 import { useAxios } from "../utils/axiosInstance";
 import useFetchUsers from "../service/useFetchUsers"; 
-import { useAuth } from "../context/AuthContext"; 
+import { useAuth } from "../context/AuthContext";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -38,6 +39,8 @@ function PostForm() {
   const [viewers, setViewers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [snackbarOpen, setSnackbarOpen] = useState(false); 
+  const [snackbarMessage, setSnackbarMessage] = useState(""); 
   const axios = useAxios();
   const { user } = useAuth(); 
 
@@ -74,8 +77,10 @@ function PostForm() {
       const postData = {
         content,
         privacy,
-        viewerIDs: privacy === "almost_private" ? viewers : [],
+        viewer_ids: privacy === "almost_private" ? viewers : [], 
       };
+
+      console.log("Sending postData:", postData); 
 
       formData.append('postData', JSON.stringify(postData));
 
@@ -98,7 +103,9 @@ function PostForm() {
       setPrivacy("public");
       setViewers([]);
 
-      alert("Post created successfully!");
+      // Show success snackbar
+      setSnackbarMessage("Post created successfully!");
+      setSnackbarOpen(true);
     } catch (err) {
       console.error("Failed to create post:", err);
       setError(err.response?.data?.message || 'Failed to create post. Please try again.');
@@ -121,6 +128,10 @@ function PostForm() {
     setViewers(
       typeof value === 'string' ? value.split(',') : value,
     );
+  };
+
+  const handleSnackbarClose = () => {
+    setSnackbarOpen(false);
   };
 
   return (
@@ -326,6 +337,15 @@ function PostForm() {
           "Submit Post"
         )}
       </Button>
+
+      {/* Snackbar for Success Messages */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={6000}
+        onClose={handleSnackbarClose}
+        message={snackbarMessage}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
     </Paper>
   );
 }

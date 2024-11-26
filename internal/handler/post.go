@@ -30,18 +30,22 @@ func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Check if this is a multipart form (with image) or regular JSON request
 	contentType := r.Header.Get("Content-Type")
-	userID := r.Context().Value("user_id").(string)
+	userID, ok := r.Context().Value("user_id").(string)
+	if !ok || userID == "" {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
 	var input model.CreatePostInput
 
-	if contentType == "application/json" {
+	if strings.HasPrefix(contentType, "application/json") {
 		// Handle regular JSON post without image
 		if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
+			http.Error(w, "Invalid JSON payload", http.StatusBadRequest)
 			return
 		}
-	} else if contentType[:19] == "multipart/form-data" {
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
 		// Handle multipart form with image
 		r.Body = http.MaxBytesReader(w, r.Body, maxUploadSize)
 		if err := r.ParseMultipartForm(maxUploadSize); err != nil {
