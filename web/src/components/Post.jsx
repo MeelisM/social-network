@@ -115,7 +115,6 @@ function Post({ post, onPostUpdate, onPostDelete }) {
     const previewUrl = URL.createObjectURL(file);
     setCommentImagePreview(previewUrl);
 
-    // Cleanup preview URL when component unmounts
     return () => URL.revokeObjectURL(previewUrl);
   };
 
@@ -255,7 +254,7 @@ function Post({ post, onPostUpdate, onPostDelete }) {
                   borderRadius: 1,
                   fontSize: '0.75rem',
                   color: '#fff',
-                  display: 'none', // Set to 'block' for debugging
+                  display: 'none', 
                 }}
               >
                 {post.image_path}
@@ -467,14 +466,12 @@ function Post({ post, onPostUpdate, onPostDelete }) {
           open={Boolean(commentAnchorEl)}
           onClose={handleCommentMenuClose}
         >
-          {/* Removed Edit Comment MenuItem */}
           <MenuItem onClick={handleDeleteComment}>
             <Delete sx={{ mr: 1 }} /> Delete Comment
           </MenuItem>
         </Menu>
       )}
       
-      {/* Edit Comment Dialog - Removed */}
     </Paper>
   );
 }

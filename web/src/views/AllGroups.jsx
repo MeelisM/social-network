@@ -80,7 +80,7 @@ const AllGroups = () => {
                   }}
                 >
                   <Link
-                    to={`/group/${group.id}`} // Redirect to group detail page
+                    to={`/group/${group.id}`} 
                     style={{
                       textDecoration: "none",
                       color: "inherit",

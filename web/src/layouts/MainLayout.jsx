@@ -201,7 +201,7 @@ function MainLayout({ children }) {
         {isSidebarOpen && (
           <Box
             sx={{
-              width: isSmallScreen ? '80%' : drawerWidth, // Responsive width
+              width: isSmallScreen ? '80%' : drawerWidth, 
               flexShrink: 0,
               bgcolor: '#1f1f1f',
               color: 'white',
@@ -211,8 +211,8 @@ function MainLayout({ children }) {
               bottom: 0,
               display: 'flex',
               flexDirection: 'column',
-              zIndex: theme.zIndex.drawer + 1, // Ensure it's on top
-              transition: 'width 0.3s ease', // Smooth transition
+              zIndex: theme.zIndex.drawer + 1, 
+              transition: 'width 0.3s ease', 
             }}
           >
             <Sidebar />
