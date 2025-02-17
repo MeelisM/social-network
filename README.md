@@ -14,7 +14,7 @@ Backend is built with Golang and frontend is built with React.
 #### Clone the repository
 
 ```
-git clone https://01.kood.tech/git/tdubolaz/social-network.git && cd social-network
+git clone https://github.com/MeelisM/social-network.git && cd social-network
 ```
 
 #### Run the project with Docker
@@ -37,9 +37,3 @@ cd web && npm install && npm run dev
 
 Backend is served @ [http://www.localhost:8080](http://www.localhost:8080)<br>
 Frontend is served @ [http://www.localhost:5173](http://www.localhost:5173)
-
-### Authors
-
-Authors: Tanel Dubolazov, Meelis Mumm
-
-<b>Audit</b> for this project can be found [here](https://01.kood.tech/git/root/public/src/branch/master/subjects/social-network/audit).
