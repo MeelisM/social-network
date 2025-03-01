@@ -1,7 +1,7 @@
 # Social Network
 
 Facebook-like social network project with user profiles, posts, followers, groups, events, notifications, chat etc.<br>
-Backend is built with Golang and frontend is built with React.
+Backend is built with Golang and frontend is built with React by [Tanel Dubolazov](https://github.com/TanelDubolazov).
 
 ## Prerequisites
 
